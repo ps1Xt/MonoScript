@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Reference Include="Microsoft.CSharp">
-      <HintPath>C:\Users\faust\Desktop\Microsoft.CSharp\Microsoft.CSharp.dll</HintPath>
+      <HintPath>C:\Users\faust\Desktop\Microsoft.CSharp.dll</HintPath>
     </Reference>
   </ItemGroup>
 
