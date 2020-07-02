@@ -113,11 +113,10 @@ namespace MonoScript.Script.Elements
         {
             foreach (Field field in fields)
             {
-                FindContext context = new FindContext(field.Modifiers.Contains("static"));
+                FindContext context = new FindContext(field);
+                ExecuteContextCollection executeContext = ExecuteContextCollection.Default;
                 context.MonoType = field.ParentObject is MonoType ? field.ParentObject as MonoType : ((field.ParentObject as Method)?.ParentObject as MonoType);
                 context.ScriptFile = context.MonoType?.ParentObject as ScriptFile;
-
-                ExecuteContextCollection executeContext = ExecuteContextCollection.Default;
 
                 if (field.Modifiers.Contains("readonly"))
                     executeContext = ExecuteContextCollection.Readonly;
@@ -125,11 +124,7 @@ namespace MonoScript.Script.Elements
                 if (field.Modifiers.Contains("const"))
                     executeContext = ExecuteContextCollection.Const;
 
-                var executeResult = MonoInterpreter.ExecuteExpression(field.Value, field, context, executeContext);
-                field.Value = executeResult;
-
-                if (executeResult is Field executeField)
-                    field.Value = executeField.Value;
+                field.Value = MonoInterpreter.ExecuteExpression(field.Value, field, context, executeContext);
             }
         }
 

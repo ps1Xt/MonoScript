@@ -49,7 +49,7 @@ namespace MonoScript.Script.Types
                 if (Modifiers.Contains("static"))
                     MLog.AppErrors.Add(new AppMessage("You cannot inherit a static class.", $"Path {FullPath}"));
 
-                Class parentObj = Finder.FindObject(Parent.StringValue, new FindContext(Modifiers.Contains("static")) { ScriptFile = ParentObject as ScriptFile }) as Class;
+                Class parentObj = Finder.FindObject(Parent.StringValue, new FindContext(this) { ScriptFile = ParentObject as ScriptFile }) as Class;
                 IInherit<Class, Class>.GetErrors(this, parentObj);
 
                 if (parentObj != null)

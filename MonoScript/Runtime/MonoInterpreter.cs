@@ -20,7 +20,6 @@ namespace MonoScript.Runtime
     public class MonoInterpreter
     {
         Application app;
-
         public MonoInterpreter(Application app) => this.app = app;
 
         public Status RunApplication()
@@ -50,7 +49,7 @@ namespace MonoScript.Runtime
         }
         public Status Run()
         {
-            FindContext findContext = new FindContext(app.MainScript.Root.Method.Modifiers.Contains("static"))
+            FindContext findContext = new FindContext(app.MainScript.Root.Method)
             {
                 LocalSpace = new LocalSpace(null),
                 MonoType = app.MainScript.Root.Class,
@@ -267,7 +266,7 @@ namespace MonoScript.Runtime
                             pos++;
                             var executeResult = ExecuteConditionalExpression(expression, context, ref pos);
 
-                                
+                            
                         }
 
                         if (expression[pos] == '&')
@@ -480,8 +479,8 @@ namespace MonoScript.Runtime
                     return null;
                 }
 
-                string operatorName = OperatorCollection.GetOperatorBySign(equalitySign).Name;
-                Method overloadMethod = leftType.OverloadOperators.FirstOrDefault(sdef => sdef.Name == operatorName);
+                Operator oper = OperatorCollection.GetOperatorBySign(equalitySign);
+                Method overloadMethod = leftType.OverloadOperators.FirstOrDefault(sdef => sdef.Name == oper.Name && sdef.Parameters.Count == oper.Parameters);
 
                 if (overloadMethod != null)
                 {
@@ -489,8 +488,8 @@ namespace MonoScript.Runtime
                     localSpace.Fields.Add(new Field(overloadMethod.Parameters[0].Name, null) { Value = leftObj });
                     localSpace.Fields.Add(new Field(overloadMethod.Parameters[1].Name, null) { Value = rightObj });
 
-                    if (!context.IsStaticContext)
-                        return ExecuteScript(overloadMethod.Content, new FindContext(false) { LocalSpace = localSpace, MonoType = context.MonoType, ScriptFile = context.ScriptFile }, ExecuteScriptContextCollection.Method);
+                    if (!context.IsStaticObject)
+                        return ExecuteScript(overloadMethod.Content, new FindContext(overloadMethod) { LocalSpace = localSpace, MonoType = context.MonoType, ScriptFile = context.ScriptFile }, ExecuteScriptContextCollection.Method);
 
                     MLog.AppErrors.Add(new AppMessage("Operators cannot be overridden in static classes.", errorSource));
                 }
@@ -642,8 +641,8 @@ namespace MonoScript.Runtime
                                             return;
                                         }
 
-                                        string operatorName = OperatorCollection.GetOperatorBySign(expression[i].ToString()).Name;
-                                        Method overloadMethod = leftType.OverloadOperators.FirstOrDefault(sdef => sdef.Name == operatorName);
+                                        Operator oper = OperatorCollection.GetOperatorBySign(expression[i].ToString());
+                                        Method overloadMethod = leftType.OverloadOperators.FirstOrDefault(sdef => sdef.Name == oper.Name && sdef.Parameters.Count == oper.Parameters);
 
                                         if (overloadMethod != null)
                                         {
@@ -651,9 +650,9 @@ namespace MonoScript.Runtime
                                             overloadLocalSpace.Fields.Add(new Field(overloadMethod.Parameters[0].Name, null) { Value = leftObj });
                                             overloadLocalSpace.Fields.Add(new Field(overloadMethod.Parameters[1].Name, null) { Value = rightObj });
 
-                                            if (!context.IsStaticContext)
+                                            if (!context.IsStaticObject)
                                             {
-                                                dynamic result = ExecuteScript(overloadMethod.Content, new FindContext(false) { LocalSpace = overloadLocalSpace, MonoType = context.MonoType, ScriptFile = context.ScriptFile }, ExecuteScriptContextCollection.Method);
+                                                dynamic result = ExecuteScript(overloadMethod.Content, new FindContext(overloadMethod) { LocalSpace = overloadLocalSpace, MonoType = context.MonoType, ScriptFile = context.ScriptFile }, ExecuteScriptContextCollection.Method);
                                                 string tmpname = $"monosys_{context.LocalSpace.FreeMonoSysValue}";
 
                                                 context.LocalSpace.Fields.Add(new Field(tmpname, null) { Value = result });
@@ -847,415 +846,114 @@ namespace MonoScript.Runtime
                         continue;
                     }
 
-                    //переделать этот метод
-                    //проверить field а так же остальные классы в которых менялось значение возвращаемое в виде [Field].Value
+                    //изменить [Field].Value | Field class.
+                    //добавить инкремент, декремент для объектов.
 
-                    if (!canMakeArray)
+                    //user1()
+                    //this.User1
+                    //user1.ToString()[0]
+                    //user1[0]
+
+                    //адаптировать поиск под пространства имен и тд
+
+
+                    if (!canMakeArray && expression[i] != ' ')
                     {
-                        if (!string.IsNullOrEmpty(objectName))
+                        dynamic FindInLastObjectField(string objName, dynamic destObj)
                         {
-                            string[] splitPaths = IPath.SplitPath(objectName);
-                            bool hasThisValue = splitPaths[0] == "this";
-                            bool hasBaseValue = splitPaths[0] == "base";
-
-                            //if (lastObj == null)
-                            //{
-                            //    //if (i + 1 == expression.Length)
-                            //    //{
-                            //    //    if (newObject[objectName.Length - 1] == '.')
-                            //    //        newObject = newObject.Remove(objectName.Length - 1);
-
-                            //    //    bool boolObj;
-                            //    //    if (bool.TryParse(newObject.Trim(' '), out boolObj))
-                            //    //        return boolObj;
-
-                            //    //    else if (newObject.Trim(' ') == "null")
-                            //    //        return null;
-
-                            //    //    else if (!hasObjThis)
-                            //    //    {
-                            //    //        var foundObj = Finder.FindObject(objectName, context);
-
-                            //    //        if (foundObj != null)
-                            //    //        {
-                            //    //            if (foundObj is Class objClass)
-                            //    //                lastObj = objClass;
-
-                            //    //            if (foundObj is Struct objStruct)
-                            //    //                lastObj = objStruct.CloneObject();
-
-                            //    //            if (foundObj is EnumValue objEnumValue)
-                            //    //                lastObj = objEnumValue.CloseObject();
-
-                            //    //            if (foundObj is Field objField)
-                            //    //                lastObj = objField.Value;
-                            //    //        }
-
-                            //    //        canNext = true;
-                            //    //        objectName = string.Empty;
-                            //    //    }
-                            //    //    else if (!context.IsStaticContext)
-                            //    //    {
-                            //    //        if (splitPaths.Length > 1)
-                            //    //        {
-                            //    //            var foundObj = Finder.FindObject(IPath.CombinePath(splitPaths.Skip(1).ToArray()), new FindContext(context.IsStaticContext) { MonoType = context.MonoType });
-
-                            //    //            if (foundObj != null)
-                            //    //            {
-                            //    //                if (foundObj is Class objClass)
-                            //    //                    lastObj = objClass;
-
-                            //    //                if (foundObj is Struct objStruct)
-                            //    //                    lastObj = objStruct.CloneObject();
-
-                            //    //                if (foundObj is EnumValue objEnumValue)
-                            //    //                    lastObj = objEnumValue.CloseObject();
-
-                            //    //                if (foundObj is Field objField)
-                            //    //                    lastObj = objField.Value;
-                            //    //            }
-
-                            //    //            canNext = true;
-                            //    //            objectName = string.Empty;
-                            //    //        }
-                            //    //        else
-                            //    //        {
-                            //    //            if (context.MonoType is Class objClass)
-                            //    //                lastObj = objClass;
-
-                            //    //            if (context.MonoType is Struct objStruct)
-                            //    //                lastObj = objStruct.CloneObject();
-
-                            //    //            canNext = false;
-                            //    //            objectName = string.Empty;
-                            //    //        }
-                            //    //    }
-                            //    //    else MLog.AppErrors.Add(new AppMessage("Operator this cannot be used in a static object.", expression));
-                            //    //}
-
-                            //    if (expression[i] == '(')
-                            //    {
-                            //        if (!hasObjThis)
-                            //        {
-                            //            var objInputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref i), context);
-
-                            //            Method foundMethod = Finder.FindObject(objectName, context, objInputs.Count) as Method;
-
-                            //            if (foundMethod != null)
-                            //            {
-                            //                if (context.SearchResult == FindContextType.LocalSpace)
-                            //                {
-                            //                    if (!foundMethod.Modifiers.Contains("static") && !foundMethod.IsConstructor)
-                            //                        lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                    else
-                            //                        MLog.AppErrors.Add(new AppMessage("Incorrect constructor or method call with static modifier.", $"Path {foundMethod.FullPath}"));
-                            //                }
-
-                            //                if (context.SearchResult == FindContextType.MonoType || context.SearchResult == FindContextType.ScriptFileWithMonoType)
-                            //                {
-                            //                    if (foundMethod.Modifiers.Contains("static"))
-                            //                        lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                    else if (foundMethod.IsConstructor)
-                            //                        lastObj = ObjectExpressions.ExecuteConstructor(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                    else
-                            //                        MLog.AppErrors.Add(new AppMessage("Incorrect constructor or method call with static modifier.", $"Path {foundMethod.FullPath}"));
-                            //                }
-                            //            }
-                            //            else
-                            //            {
-                            //                if (objInputs.Count == 1 && splitPaths.Length == 1)
-                            //                {
-                            //                    lastObj = BasicMethods.InvokeMethod(objectName, objInputs[0].Value);
-                            //                }
-                            //                else if (objInputs.Count == 0 && splitPaths.Length > 1)
-                            //                {
-                            //                    string findPath = IPath.CombinePath(splitPaths.SkipLast(1).ToArray());
-                            //                    string methodName = splitPaths[splitPaths.Length - 1];
-
-                            //                    var foundObj = Finder.FindObject(findPath, context);
-
-                            //                    if (foundObj != null)
-                            //                    {
-                            //                        if (foundObj is Class objClass)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objClass);
-
-                            //                        if (foundObj is Struct objStruct)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objStruct);
-
-                            //                        if (foundObj is EnumValue objEnumValue)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objEnumValue.Value);
-
-                            //                        if (foundObj is Field objField)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objField.Value);
-                            //                    }
-                            //                    else MLog.AppErrors.Add(new AppMessage("Object not found.", $"Path {objectName}"));
-                            //                }
-                            //                else MLog.AppErrors.Add(new AppMessage("Method not found.", $"Path {objectName}"));
-                            //            }
-
-                            //            canNext = false;
-                            //            objectName = string.Empty;
-                            //        }
-                            //        else if (!context.IsStaticContext)
-                            //        {
-                            //            if (splitPaths.Length > 1)
-                            //            {
-                            //                var objInputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref i), context);
-
-                            //                Method foundMethod = Finder.FindObject(IPath.CombinePath(splitPaths.Skip(1).ToArray()), new FindContext(context.IsStaticContext) { MonoType = context.MonoType }, objInputs.Count) as Method;
-
-                            //                if (foundMethod != null)
-                            //                {
-                            //                    if (!foundMethod.Modifiers.Contains("static") && !foundMethod.IsConstructor)
-                            //                        lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                    else
-                            //                        MLog.AppErrors.Add(new AppMessage("Incorrect constructor or method call with static modifier.", $"Path {foundMethod.FullPath}"));
-                            //                }
-                            //                else if (objInputs.Count == 0)
-                            //                {
-                            //                    string findPath = IPath.CombinePath(splitPaths.SkipLast(1).ToArray());
-                            //                    string methodName = splitPaths[splitPaths.Length - 1];
-
-                            //                    var foundObj = Finder.FindObject(findPath, new FindContext(context.IsStaticContext) { MonoType = context.MonoType });
-
-                            //                    if (foundObj != null)
-                            //                    {
-                            //                        if (foundObj is Class objClass)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objClass);
-
-                            //                        if (foundObj is Struct objStruct)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objStruct);
-
-                            //                        if (foundObj is EnumValue objEnumValue)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objEnumValue.Value);
-
-                            //                        if (foundObj is Field objField)
-                            //                            lastObj = BasicMethods.InvokeMethod(methodName, objField.Value);
-                            //                    }
-                            //                    else MLog.AppErrors.Add(new AppMessage("Object not found.", $"Path {objectName}"));
-                            //                }
-                            //                else MLog.AppErrors.Add(new AppMessage("Method not found.", $"Path {objectName}"));
-
-                            //                canNext = true;
-                            //                objectName = string.Empty;
-                            //            }
-                            //            else MLog.AppErrors.Add(new AppMessage("Construction this cannot be called as a method.", expression));
-                            //        }
-                            //        else MLog.AppErrors.Add(new AppMessage("Operator this cannot be used in a static object.", expression));
-                            //    }
-
-                            //    if (expression[i] == '[')
-                            //    {
-                            //        if (!hasObjThis)
-                            //        {
-                            //            var foundObj = Finder.FindObject(objectName, context);
-
-                            //            if (foundObj != null)
-                            //            {
-                            //                var objInputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref i), context);
-
-                            //                //if (foundObj is MonoType monoTypeObj)
-                            //                //{
-                            //                //    var foundMethod = monoTypeObj.OverloadOperators.FirstOrDefault(x => OperatorCollection.GetElement.Names.Contains(x.Name));
-
-                            //                //    if (foundMethod != null)
-                            //                //        lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                //    else
-                            //                //        MLog.AppErrors.Add(new AppMessage("Method not found.", $"Path {objectName}"));
-                            //                //}
-
-                            //                if (foundObj is Field fieldObj)
-                            //                {
-                            //                    if (Extensions.HasEnumerator(fieldObj.Value) && objInputs.Count == 1)
-                            //                    {
-                            //                        if (objInputs[0].Value is double || (objInputs[0].Value as Field)?.Value is double)
-                            //                            lastObj = fieldObj.Value[objInputs[0].Value];
-                            //                    }
-                            //                    else
-                            //                        MLog.AppErrors.Add(new AppMessage("Misuse of the GetElement statement.", expression));
-                            //                }
-                            //            }
-                            //            else
-                            //                MLog.AppErrors.Add(new AppMessage("Object not found.", expression));
-
-                            //            canNext = true;
-                            //            objectName = string.Empty;
-                            //        }
-                            //        else if (!context.IsStaticContext)
-                            //        {
-                            //            if (splitPaths.Length > 1)
-                            //            {
-                            //                var foundObj = Finder.FindObject(IPath.CombinePath(splitPaths.Skip(1).ToArray()), new FindContext(context.IsStaticContext) { MonoType = context.MonoType });
-
-                            //                if (foundObj != null)
-                            //                {
-                            //                    var objInputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref i), context);
-
-                            //                    //if (foundObj is MonoType monoTypeObj)
-                            //                    //{
-                            //                    //    var foundMethod = monoTypeObj.OverloadOperators.FirstOrDefault(x => OperatorCollection.GetElement.Names.Contains(x.Name));
-
-                            //                    //    if (foundMethod != null)
-                            //                    //        lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                    //    else
-                            //                    //        MLog.AppErrors.Add(new AppMessage("Method not found.", $"Path {objectName}"));
-                            //                    //}
-
-                            //                    if (foundObj is Field fieldObj)
-                            //                    {
-                            //                        if (Extensions.HasEnumerator(fieldObj.Value) && objInputs.Count == 1)
-                            //                        {
-                            //                            if (objInputs[0].Value is double || (objInputs[0].Value as Field)?.Value is double)
-                            //                                lastObj = fieldObj.Value[objInputs[0].Value];
-                            //                        }
-                            //                        else
-                            //                            MLog.AppErrors.Add(new AppMessage("Misuse of the GetElement statement.", expression));
-                            //                    }
-                            //                }
-                            //                else
-                            //                    MLog.AppErrors.Add(new AppMessage("Object not found.", expression));
-
-                            //                canNext = true;
-                            //                objectName = string.Empty;
-                            //            }
-                            //            else
-                            //            {
-                            //                //var objInputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref i), context);
-                            //                //var foundMethod = context.MonoType?.OverloadOperators.FirstOrDefault(x => OperatorCollection.GetElement.Names.Contains(x.Name));
-
-                            //                //if (foundMethod != null)
-                            //                //    lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                //else
-                            //                //    MLog.AppErrors.Add(new AppMessage("Method not found.", $"Path {objectName}"));
-
-                            //                canNext = true;
-                            //                objectName = string.Empty;
-                            //            }
-                            //        }
-                            //        else MLog.AppErrors.Add(new AppMessage("Operator this cannot be used in a static object.", expression));
-                            //    }
-
-                            //    if (expression[i] == '.')
-                            //    {
-                            //        if (isDouble)
-                            //        {
-                            //            if (hasResidue && objectName[objectName.Length - 1] == '.')
-                            //                newObject = objectName.Remove(objectName.Length - 1);
-
-                            //            double numberParse;
-                            //            if (double.TryParse(newObject.Replace(".", ","), out numberParse))
-                            //                lastObj = numberParse;
-                            //            else
-                            //                MLog.AppErrors.Add(new AppMessage("Wrong digital string.", expression));
-
-                            //            canNext = true;
-                            //            objectName = string.Empty;
-                            //        }
-                            //        else
-                            //        {
-                            //            if (newObject[objectName.Length - 1] == '.')
-                            //                newObject = newObject.Remove(objectName.Length - 1);
-
-                            //            bool boolObj;
-                            //            if (bool.TryParse(newObject.Trim(' '), out boolObj))
-                            //                lastObj = boolObj;
-
-                            //            else if (newObject.Trim(' ') == "null")
-                            //                lastObj = null;
-
-                            //            canNext = true;
-                            //            objectName = string.Empty;
-                            //        }
-                            //    }
-                            //}
-                            //else
-                            //{
-                            //    if (canNext)
-                            //    {
-                            //        if (expression[i] == '(')
-                            //        {
-                            //            if (objectName[0] == '.')
-                            //                objectName = objectName.Remove(0, 1);
-
-                            //            if (!hasObjThis)
-                            //            {
-                            //                var objInputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref i), context);
-
-                            //                Method foundMethod = Finder.FindObject(objectName, new FindContext(context.IsStaticContext) { MonoType = lastObj as MonoType }, objInputs.Count) as Method;
-
-                            //                if (foundMethod != null)
-                            //                {
-                            //                    if (!foundMethod.Modifiers.Contains("static") && !foundMethod.IsConstructor)
-                            //                        lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                    else
-                            //                        MLog.AppErrors.Add(new AppMessage("Incorrect constructor or method call with static modifier.", $"Path {foundMethod.FullPath}"));
-                            //                }
-                            //                else if (objInputs.Count == 0)
-                            //                {
-                            //                    lastObj = BasicMethods.InvokeMethod(objectName, lastObj);
-                            //                }
-                            //                else MLog.AppErrors.Add(new AppMessage("Method not found.", $"Path {objectName}"));
-
-                            //                objectName = string.Empty;
-                            //                canNext = false;
-                            //            }
-                            //            else
-                            //                MLog.AppErrors.Add(new AppMessage("Incorrect use of the this operator.", expression));
-                            //        }
-
-                            //        if (expression[i] == '[')
-                            //        {
-                            //            if (objectName[0] == '.')
-                            //                objectName = objectName.Remove(0, 1);
-
-                            //            if (!hasObjThis)
-                            //            {
-                            //                //var objInputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref i), context);
-                            //                //var foundObj = Finder.FindObject(objectName, new FindContext(context.IsStaticContext) { MonoType = lastObj as MonoType });
-
-                            //                //if (foundObj != null)
-                            //                //{
-                            //                //    if (foundObj is MonoType monoTypeObj)
-                            //                //    {
-                            //                //        var foundMethod = monoTypeObj.OverloadOperators.FirstOrDefault(x => OperatorCollection.GetElement.Names.Contains(x.Name));
-
-                            //                //        if (foundMethod != null)
-                            //                //            lastObj = ObjectExpressions.ExecuteMethod(foundMethod, HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, objInputs, foundMethod.FullPath));
-                            //                //        else
-                            //                //            MLog.AppErrors.Add(new AppMessage("Method not found.", expression));
-                            //                //    }
-
-                            //                //    if (foundObj is Field fieldObj)
-                            //                //    {
-                            //                //        if (Extensions.HasEnumerator(fieldObj.Value) && objInputs.Count == 1)
-                            //                //        {
-                            //                //            if (objInputs[0].Value is double || (objInputs[0].Value as Field)?.Value is double)
-                            //                //                lastObj = fieldObj.Value[objInputs[0].Value];
-                            //                //        }
-                            //                //        else
-                            //                //            MLog.AppErrors.Add(new AppMessage("Misuse of the GetElement statement.", expression));
-                            //                //    }
-                            //                //}
-                            //                //else
-                            //                //    MLog.AppErrors.Add(new AppMessage("Object not found.", expression));
-                                            
-                            //                //objectName = string.Empty;
-                            //                //canNext = false;
-                            //            }
-                            //            else
-                            //                MLog.AppErrors.Add(new AppMessage("Incorrect use of the this operator.", expression));
-                            //        }
-                            //    }
-
-                            //    if (expression[i] == '.')
-                            //    {
-                            //        if (canNext)
-                            //            MLog.AppErrors.Add(new AppMessage("Incorrect use of the dot operator.", expression));
-
-                            //        canNext = true;
-                            //    }
-                            //}
+                            if (destObj is MonoType objType)
+                            {
+                                Field foundField = objType.Fields.FirstOrDefault(x => x.Name == objName);
+
+                                if (foundField != null)
+                                {
+                                    bool? allowedAccess = foundField.Modifiers.Contains("public");
+
+                                    if (!allowedAccess.HasValue && foundField.Modifiers.Contains("private"))
+                                        allowedAccess = objType.FullPath == context.MonoType?.FullPath;
+
+                                    if (!allowedAccess.HasValue && foundField.Modifiers.Contains("protected"))
+                                        allowedAccess = (objType as Class)?.ContainsParent(context.MonoType as Class);
+
+                                    if (allowedAccess.HasValue && allowedAccess.Value)
+                                        return lastObj;
+
+                                    MLog.AppErrors.Add(new AppMessage("Object is below access level.", $"Object {objName}"));
+                                }
+                                else
+                                    MLog.AppErrors.Add(new AppMessage("An object with this name was not found in the class or structure.", $"Object {objName}"));
+                            }
+                            else
+                                MLog.AppErrors.Add(new AppMessage("An object is not a class or structure.", $"Object {lastObj}"));
+
+                            return null;
                         }
+                        dynamic FindInLastObjectMethod(string methodName, dynamic destObj)
+                        {
+                            return null;
+                        }
+
+                        objectName = IPath.NormalizeWithTrim(objectName);
+
+                        if (i + 1 == expression.Length && !string.IsNullOrWhiteSpace(objectName))
+                        {
+                            if (lastObj == null)
+                                lastObj = Finder.FindObject(objectName, context);
+                            else
+                                lastObj = FindInLastObjectField(objectName, lastObj);
+                        }
+
+                        if (expression[i] == '[')
+                        {
+                            if (!string.IsNullOrWhiteSpace(objectName))
+                            {
+                                if (lastObj != null)
+                                    lastObj = FindInLastObjectField(objectName, lastObj);
+                                else
+                                    lastObj = Finder.FindObject(objectName, context);
+                            }
+
+                            lastObj = ObjectExpressions.ExecuteOperatorGetElement(expression, ref i, lastObj, context);
+                        }
+
+                        
+                        //if (expression[i] == '(')
+                        //{
+                        //    if (!string.IsNullOrWhiteSpace(objectName))
+                        //    {
+                        //        if (lastObj == null)
+                        //        {
+
+                        //        }
+                        //        else
+                        //        {
+
+                        //        }
+                        //    }
+                        //}
+
+                        //if (expression[i] == '.')
+                        //{
+                        //    if (!string.IsNullOrWhiteSpace(objectName))
+                        //    {
+                        //        if (lastObj == null)
+                        //        {
+
+                        //        }
+                        //        else
+                        //        {
+                        //            if (!canNext)
+                        //                canNext = true;
+                        //            else
+                        //                MLog.AppErrors.Add(new AppMessage("Incorrect dot declaration.", expression));
+
+                        //            if (!string.IsNullOrEmpty(objectName))
+                        //            {
+                        //                lastObj = FindInLastObjectField(objectName, lastObj);
+                        //            }
+                        //        }
+                        //    }
+                        //}
                     }
                 }
             }

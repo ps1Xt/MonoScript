@@ -114,7 +114,6 @@ namespace MonoScript.Runtime
 
             Assert.Equal("this", resultString);
         }
-
         [Fact]
         public static void ExecuteNullExpression()
         {

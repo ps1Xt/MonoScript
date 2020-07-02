@@ -9,6 +9,7 @@ using MonoScript.Script.Elements;
 using MonoScript.Script.Types;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace MonoScript.Runtime
@@ -49,7 +50,7 @@ namespace MonoScript.Runtime
 
             if (resultString == "base")
             {
-                if (context.IsStaticContext)
+                if (context.IsStaticObject)
                 {
                     MLog.AppErrors.Add(new AppMessage("Operator base cannot be called in a static class.", expression));
                     return false;
@@ -106,7 +107,7 @@ namespace MonoScript.Runtime
 
             if (resultString == "this")
             {
-                if (context.IsStaticContext)
+                if (context.IsStaticObject)
                 {
                     MLog.AppErrors.Add(new AppMessage("Operator this cannot be called in a static class.", expression));
                     return false;
@@ -396,12 +397,7 @@ namespace MonoScript.Runtime
                     {
                         int pos = 0;
 
-                        var arrValue = MonoInterpreter.ExecuteConditionalExpression(tmpex, context, ref pos);
-
-                        if (arrValue is Field field)
-                            arrValue = field.Value;
-
-                        arrayValues.Add(arrValue);
+                        arrayValues.Add(MonoInterpreter.ExecuteConditionalExpression(tmpex, context, ref pos));
 
                         tmpex = null;
                         continue;
@@ -445,12 +441,7 @@ namespace MonoScript.Runtime
                     {
                         int pos = 0;
 
-                        var arrValue = MonoInterpreter.ExecuteConditionalExpression(tmpex, context, ref pos);
-
-                        if (arrValue is Field field)
-                            arrValue = field.Value;
-
-                        arrayValues.Add(arrValue);
+                        arrayValues.Add(MonoInterpreter.ExecuteConditionalExpression(tmpex, context, ref pos));
 
                         break;
                     }
@@ -514,19 +505,14 @@ namespace MonoScript.Runtime
         }
         public static dynamic ExecuteMethod(Method method, LocalSpace localSpace)
         {
-            FindContext context = new FindContext(method.Modifiers.Contains("static")) { LocalSpace = localSpace, MonoType = method.ParentObject as MonoType };
+            FindContext context = new FindContext(method) { LocalSpace = localSpace, MonoType = method.ParentObject as MonoType };
             context.ScriptFile = context.MonoType?.ParentObject as ScriptFile;
 
-            var result = MonoInterpreter.ExecuteScript(method.Content, context, ExecuteScriptContextCollection.Method);
-
-            if (result is Field field)
-                result = field.Value;
-
-            return result;
+            return MonoInterpreter.ExecuteScript(method.Content, context, ExecuteScriptContextCollection.Method);
         }
         public static dynamic ExecuteConstructor(Method method, LocalSpace localSpace)
         {
-            FindContext context = new FindContext(method.Modifiers.Contains("static")) { LocalSpace = localSpace };
+            FindContext context = new FindContext(method) { LocalSpace = localSpace };
 
             if (method.ParentObject is Class objClass)
             {
@@ -553,6 +539,41 @@ namespace MonoScript.Runtime
             }
 
             return null;
+        }
+        public static dynamic ExecuteOperatorGetElement(string expression, ref int index, dynamic lastObj, FindContext context)
+        {
+            if (lastObj != null)
+            {
+                if (lastObj is MonoType objType)
+                {
+                    Method overloadMethod = objType.OverloadOperators.FirstOrDefault(sdef => sdef.Name == OperatorCollection.GetElement.Name);
+
+                    if (overloadMethod != null)
+                    {
+                        var inputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref index), context);
+
+                        LocalSpace methodLocalSpace = HelperExpressions.GetMethodLocalSpace(overloadMethod.Parameters, inputs, overloadMethod.FullPath);
+                        lastObj = ObjectExpressions.ExecuteMethod(overloadMethod, methodLocalSpace);
+                    }
+                    else
+                        MLog.AppErrors.Add(new AppMessage("No overload method found for GetElement statement.", $"Object {objType.Name}"));
+                }
+                else if (Extensions.HasEnumerator(lastObj))
+                {
+                    var inputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref index), context);
+
+                    if (inputs.Count == 1 && inputs[0].Value is double numberValue)
+                    {
+                        lastObj = lastObj[(int)int.Parse(numberValue.ToString().Split(',')[0])];
+                    }
+                    else
+                        MLog.AppErrors.Add(new AppMessage("Invalid array element retrieval options.", expression));
+                }
+                else
+                    MLog.AppErrors.Add(new AppMessage("An object is not an array, structure, or class.", expression));
+            }
+
+            return lastObj;
         }
     }
 }

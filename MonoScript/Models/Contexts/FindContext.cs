@@ -1,5 +1,6 @@
 ﻿using MonoScript.Models.Application;
 using MonoScript.Models.Script;
+using MonoScript.Script.Elements;
 using MonoScript.Script.Types;
 using System;
 using System.Collections.Generic;
@@ -9,20 +10,22 @@ namespace MonoScript.Models.Contexts
 {
     public class FindContext
     {
-        public bool IsStaticContext { get; set; }
-        public ScriptFile ScriptFile { get; set; }
-        public MonoType MonoType { get; set; }
         public LocalSpace LocalSpace { get; set; }
-        public FindContextType SearchResult { get; set; }
+        public MonoType MonoType { get; set; }
+        public ScriptFile ScriptFile { get; set; }
+        public object ObjectContext { get; set; }
 
-        public FindContext(bool isStaticContext)
+        public FindContext(object objectContext) => ObjectContext = objectContext;
+
+        public bool IsStaticObject
         {
-            IsStaticContext = isStaticContext;
-        }
-    }
+            get
+            {
+                if ((ObjectContext is Field && (ObjectContext as Field).Modifiers.Contains("static")) || (ObjectContext is Method && (ObjectContext as Method).Modifiers.Contains("static")))
+                    return true;
 
-    public enum FindContextType
-    {
-        Empty, LocalSpace, MonoType, ScriptFileWithMonoType
+                return false;
+            }
+        }
     }
 }

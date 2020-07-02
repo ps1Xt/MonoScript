@@ -60,6 +60,8 @@ namespace MonoScript.Runtime
 
                         if (openCount == 0)
                         {
+                            index++;
+
                             if (!string.IsNullOrWhiteSpace(tmpex))
                                 values.Add(tmpex);
 
@@ -90,12 +92,8 @@ namespace MonoScript.Runtime
                         int pos = 0;
                         string[] splitValues = stringValues[index].Split('=', 2);
                         string objName = splitValues[0].Trim(' ');
-                        dynamic objValue = MonoInterpreter.ExecuteConditionalExpression(splitValues[1], context, ref pos);
 
-                        if (objValue is Field field)
-                            objValue = field.Value;
-
-                        methodInputs.Add((objName, objValue));
+                        methodInputs.Add((objName, MonoInterpreter.ExecuteConditionalExpression(splitValues[1], context, ref pos)));
                         continue;
                     }
                 }
@@ -109,24 +107,16 @@ namespace MonoScript.Runtime
                         int pos = 0;
                         string[] splitValues = stringValues[index].Split('=', 2);
                         string objName = splitValues[0].Trim(' ');
-                        dynamic objValue = MonoInterpreter.ExecuteConditionalExpression(splitValues[1], context, ref pos);
 
-                        if (objValue is Field field)
-                            objValue = field.Value;
-
-                        methodInputs.Add((objName, objValue));
+                        methodInputs.Add((objName, MonoInterpreter.ExecuteConditionalExpression(splitValues[1], context, ref pos)));
                     }
                     else MLog.AppErrors.Add(new AppMessage("No assignment operator found for method object.", stringValues[index]));
                 }
                 else
                 {
                     int pos = 0;
-                    dynamic objValue = MonoInterpreter.ExecuteConditionalExpression(stringValues[index], context, ref pos);
 
-                    if (objValue is Field field)
-                        objValue = field.Value;
-
-                    methodInputs.Add((null, objValue));
+                    methodInputs.Add((null, MonoInterpreter.ExecuteConditionalExpression(stringValues[index], context, ref pos)));
                 }
             }
 
