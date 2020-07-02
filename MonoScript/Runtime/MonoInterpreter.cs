@@ -749,17 +749,18 @@ namespace MonoScript.Runtime
                 if (quoteModel.HasQuotes)
                 {
                     if (lastObj == null)
+                    {
                         lastObj = string.Empty;
+                        objectName = string.Empty;
 
-                    lastObj += ObjectExpressions.ExecuteStringExpression(ref i, expression, quoteModel);
-                    objectName = string.Empty;
-
-                    continue;
+                        lastObj += ObjectExpressions.ExecuteStringExpression(ref i, expression, quoteModel);
+                        continue;
+                    }
                 }
 
                 if (!quoteModel.HasQuotes)
                 {
-                    if (i == 0 || (i - 1 >= 0 && !expression[i - 1].Contains(ReservedCollection.AllowedNames)))
+                    if (lastObj == null && expression[i] != ' ' &&  (i == 0 || (i - 1 >= 0 && !expression[i - 1].Contains(ReservedCollection.AllowedNames))))
                     {
                         if (expression[i].Contains(ReservedCollection.Numbers) || (expression[i] == '.' && i + 1 < expression.Length && expression[i + 1].Contains(ReservedCollection.Numbers)))
                         {
@@ -778,7 +779,7 @@ namespace MonoScript.Runtime
                         if (i + 3 < expression.Length && expression[i] == 't' && expression[i + 1] == 'r' || (expression[i] == 'f' && expression[i + 1] == 'a'))
                         {
                             int saveIndex = i;
-                            var result = ObjectExpressions.ExecuteBooleanExpression(ref i, expression, quoteModel);
+                            var result = ObjectExpressions.ExecuteBooleanExpression(ref i, expression);
 
                             if (result is bool)
                             {
@@ -787,8 +788,54 @@ namespace MonoScript.Runtime
 
                                 lastObj = result;
                                 objectName = string.Empty;
+                                continue;
                             }
                             else
+                                i = saveIndex;
+                        }
+
+                        if (i + 3 < expression.Length && expression[i] == 'n' && expression[i + 1] == 'u' && expression[i + 2] == 'l')
+                        {
+                            int saveIndex = i;
+                            var result = ObjectExpressions.ExecuteNullExpression(ref i, expression);
+
+                            if (result is null)
+                            {
+                                lastObj = result;
+                                objectName = string.Empty;
+                                continue;
+                            }
+                            else
+                                i = saveIndex;
+                        }
+
+                        if (i + 3 < expression.Length && expression[i] == 't' && expression[i + 1] == 'h' && expression[i + 2] == 'i')
+                        {
+                            int saveIndex = i;
+                            var result = ObjectExpressions.ExecuteThisExpression(ref i, expression, context);
+
+                            if (result is MonoType)
+                            {
+                                lastObj = result;
+                                objectName = string.Empty;
+                                continue;
+                            }
+                            else if (result is null)
+                                i = saveIndex;
+                        }
+
+                        if (i + 3 < expression.Length && expression[i] == 'b' && expression[i + 1] == 'a' && expression[i + 2] == 's')
+                        {
+                            int saveIndex = i;
+                            var result = ObjectExpressions.ExecuteBaseExpression(ref i, expression, context);
+
+                            if (result is Class)
+                            {
+                                lastObj = result;
+                                objectName = string.Empty;
+                                continue;
+                            }
+                            else if (result is null)
                                 i = saveIndex;
                         }
                     }
@@ -799,8 +846,6 @@ namespace MonoScript.Runtime
                         lastObj = ObjectExpressions.ExecuteArrayExpression(ref i, expression, context);
                         continue;
                     }
-
-                    //сделать тоже самое что и выше для null, и тд
 
                     //переделать этот метод
                     //проверить field а так же остальные классы в которых менялось значение возвращаемое в виде [Field].Value

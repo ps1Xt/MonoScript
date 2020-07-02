@@ -15,7 +15,141 @@ namespace MonoScript.Runtime
 {
     public static class ObjectExpressions
     {
-        public static dynamic ExecuteBooleanExpression(ref int index, string expression, InsideQuoteModel quoteModel = null)
+        public static dynamic ExecuteBaseExpression(ref int index, string expression, FindContext context)
+        {
+            string resultString = string.Empty;
+
+            if (index + 3 < expression.Length)
+            {
+                if (index == 0)
+                {
+                    if (expression[index] == 'b' && expression[index + 1] == 'a' && expression[index + 2] == 's' && expression[index + 3] == 'e')
+                    {
+                        index += 3;
+
+                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                            resultString = "base";
+                        if (expression.Length == 4)
+                            resultString = "base";
+                    }
+                }
+                if (index - 1 >= 0 && !expression[index - 1].Contains(ReservedCollection.AllowedNames))
+                {
+                    if (expression[index] == 'b' && expression[index + 1] == 'a' && expression[index + 2] == 's' && expression[index + 3] == 'e')
+                    {
+                        index += 3;
+
+                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                            resultString = "base";
+                        if (expression.Length == 4)
+                            resultString = "base";
+                    }
+                }
+            }
+
+            if (resultString == "base")
+            {
+                if (context.IsStaticContext)
+                {
+                    MLog.AppErrors.Add(new AppMessage("Operator base cannot be called in a static class.", expression));
+                    return false;
+                }
+                else
+                {
+                    if (context.MonoType is Class objClass)
+                    {
+                        if (objClass.Parent.ObjectValue != null)
+                            return objClass.Parent.ObjectValue;
+
+                        MLog.AppErrors.Add(new AppMessage("The base operator can only be used in the descendant class.", expression));
+                        return false;
+                    }
+                    
+                    MLog.AppErrors.Add(new AppMessage("The base operator can only be used in classes.", expression));
+                    return false;
+                }
+            }
+
+            return null;
+        }
+        public static dynamic ExecuteThisExpression(ref int index, string expression, FindContext context)
+        {
+            string resultString = string.Empty;
+
+            if (index + 3 < expression.Length)
+            {
+                if (index == 0)
+                {
+                    if (expression[index] == 't' && expression[index + 1] == 'h' && expression[index + 2] == 'i' && expression[index + 3] == 's')
+                    {
+                        index += 3;
+
+                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                            resultString = "this";
+                        if (expression.Length == 4)
+                            resultString = "this";
+                    }
+                }
+                if (index - 1 >= 0 && !expression[index - 1].Contains(ReservedCollection.AllowedNames))
+                {
+                    if (expression[index] == 't' && expression[index + 1] == 'h' && expression[index + 2] == 'i' && expression[index + 3] == 's')
+                    {
+                        index += 3;
+
+                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                            resultString = "this";
+                        if (expression.Length == 4)
+                            resultString = "this";
+                    }
+                }
+            }
+
+            if (resultString == "this")
+            {
+                if (context.IsStaticContext)
+                {
+                    MLog.AppErrors.Add(new AppMessage("Operator this cannot be called in a static class.", expression));
+                    return false;
+                }
+                else
+                    return context.MonoType;
+            }
+
+            return null;
+        }
+        public static dynamic ExecuteNullExpression(ref int index, string expression)
+        {
+            if (index + 3 < expression.Length)
+            {
+                if (index == 0)
+                {
+                    if (expression[index] == 'n' && expression[index + 1] == 'u' && expression[index + 2] == 'l' && expression[index + 3] == 'l')
+                    {
+                        index += 3;
+
+                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                            return null;
+                        if (expression.Length == 4)
+                            return null;
+                    }
+                }
+                if (index - 1 >= 0 && !expression[index - 1].Contains(ReservedCollection.AllowedNames))
+                {
+                    if (expression[index] == 'n' && expression[index + 1] == 'u' && expression[index + 2] == 'l' && expression[index + 3] == 'l')
+                    {
+                        index += 3;
+
+                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                            return null;
+                        if (expression.Length == 4)
+                            return null;
+                    }
+                }
+            }
+
+            return false;
+        }
+        public static dynamic ExecuteBooleanExpression(ref int index, string expression)
         {
             if (index + 3 < expression.Length)
             {
@@ -23,6 +157,8 @@ namespace MonoScript.Runtime
                 {
                     if (expression[index] == 't' && expression[index + 1] == 'r' && expression[index + 2] == 'u' && expression[index + 3] == 'e')
                     {
+                        index += 3;
+
                         if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
                             return true;
                         if (expression.Length == 4)
@@ -31,6 +167,8 @@ namespace MonoScript.Runtime
 
                     if (expression[index] == 'f' && expression[index + 1] == 'a' && expression[index + 2] == 'l' && expression[index + 3] == 's' && expression[index + 4] == 'e')
                     {
+                        index += 4;
+
                         if (index + 5 >= expression.Length || !expression[index + 5].Contains(ReservedCollection.AllowedNames))
                             return false;
                         if (expression.Length == 5)
@@ -41,6 +179,8 @@ namespace MonoScript.Runtime
                 {
                     if (expression[index] == 't' && expression[index + 1] == 'r' && expression[index + 2] == 'u' && expression[index + 3] == 'e')
                     {
+                        index += 3;
+
                         if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
                             return true;
                         if (expression.Length == 4)
@@ -49,6 +189,8 @@ namespace MonoScript.Runtime
 
                     if (expression[index] == 'f' && expression[index + 1] == 'a' && expression[index + 2] == 'l' && expression[index + 3] == 's' && expression[index + 4] == 'e')
                     {
+                        index += 4;
+
                         if (index + 5 >= expression.Length || !expression[index + 5].Contains(ReservedCollection.AllowedNames))
                             return false;
                         if (expression.Length == 5)
