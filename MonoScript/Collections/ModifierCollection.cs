@@ -8,7 +8,7 @@ namespace MonoScript.Collections
 {
     public class ModifierCollection : List<string>
     {
-        public static string[] AllModifiers { get; } = new string[] { "public", "protected", "private", "static", "const", "readonly", "virtual", "ovveride", "sealed", "new", "inherit" };
+        public static string[] AllModifiers { get; } = new string[] { "public", "protected", "private", "static", "const", "readonly" };
 
         public int FirstIndex { get; set; }
         public int LastIndex { get; set; }

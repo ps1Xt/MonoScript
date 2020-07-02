@@ -20,16 +20,12 @@ namespace MonoScript.Script.Elements
         public List<string> Modifiers { get; set; } = new List<string>();
         public List<string[]> AllowedModifierGroups { get; set; } = new List<string[]>() 
         { 
-            new string[] { "public", "static", "new", "readonly" },
-            new string[] { "private", "static", "new", "readonly" },
-            new string[] { "protected", "static", "new", "readonly" },
-            new string[] { "public", "const", "new" },
-            new string[] { "private", "const", "new" },
-            new string[] { "protected", "const", "new" },
-            new string[] { "public", "sealed", "new" },
-            new string[] { "protected", "sealed", "new" },
-            new string[] { "public", "inherit" },
-            new string[] { "protected", "inherit" }
+            new string[] { "public", "static", "readonly" },
+            new string[] { "private", "static", "readonly" },
+            new string[] { "protected", "static", "readonly" },
+            new string[] { "public", "const" },
+            new string[] { "private", "const" },
+            new string[] { "protected", "const" },
         };
         public Field(string fullpath, object parentObject, params string[] modifiers)
         {

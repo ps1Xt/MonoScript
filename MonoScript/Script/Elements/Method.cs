@@ -27,17 +27,9 @@ namespace MonoScript.Script.Elements
         public List<string> Modifiers { get; set; } = new List<string>();
         public List<string[]> AllowedModifierGroups { get; set; } = new List<string[]>()
         {
-            new string[] { "public", "static", "new" },
-            new string[] { "private", "static", "new" },
-            new string[] { "protected", "static", "new" },
-            new string[] { "public", "sealed", "new" },
-            new string[] { "protected", "sealed", "new" },
-            new string[] { "public", "virtual", "new" },
-            new string[] { "protected", "virtual", "new" },
-            new string[] { "public", "ovveride" },
-            new string[] { "protected", "ovveride" },
-            new string[] { "public", "inherit" },
-            new string[] { "protected", "inherit" },
+            new string[] { "public", "static" },
+            new string[] { "private", "static" },
+            new string[] { "protected", "static" },
         };
         public Method(string fullpath, object parentObject, params string[] modifiers)
         {

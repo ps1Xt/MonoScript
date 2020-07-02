@@ -732,7 +732,7 @@ namespace MonoScript.Runtime
 
             dynamic lastObj = null;
             string objectName = string.Empty;
-            bool canMakeArray = true, canNext = false;
+            bool canMakeArray = true;
             InsideQuoteModel quoteModel = new InsideQuoteModel();
 
             for (int i = 0; i < expression.Length; i++)
@@ -845,17 +845,6 @@ namespace MonoScript.Runtime
                         lastObj = ObjectExpressions.ExecuteArrayExpression(ref i, expression, context);
                         continue;
                     }
-
-                    //изменить [Field].Value | Field class.
-                    //добавить инкремент, декремент для объектов.
-
-                    //user1()
-                    //this.User1
-                    //user1.ToString()[0]
-                    //user1[0]
-
-                    //адаптировать поиск под пространства имен и тд
-
 
                     if (!canMakeArray && expression[i] != ' ')
                     {

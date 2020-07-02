@@ -14,7 +14,6 @@ namespace MonoScript.Models.Application
 {
     public class Application
     {
-        public MonoInterpreter Interpreter { get; private set; }
         public ScriptFile MainScript { get; private set; }
         public List<ScriptFile> ImportedScripts { get; private set; } = new List<ScriptFile>();
 
@@ -283,13 +282,13 @@ namespace MonoScript.Models.Application
         }
         public static void InitializeInheritance(Application app)
         {
-            List<IInherit<Class, Class>> inherits = new List<IInherit<Class, Class>>();
+            List<IInherit<Class>> inherits = new List<IInherit<Class>>();
             inherits.AddRange(app.MainScript.Classes);
 
             foreach (var obj in app.ImportedScripts)
                 inherits.AddRange(obj.Classes);
 
-            IInherit<Class, Class>.InitializeInheritance(inherits);
+            IInherit<Class>.InitializeInheritance(inherits);
         }
     }
 }
