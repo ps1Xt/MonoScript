@@ -10,13 +10,19 @@ using MonoScript.Script.Types;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Xunit;
 
 namespace MonoScript.Runtime
 {
     public static class ObjectExpressions
     {
-        public static dynamic ExecuteBooleanExpression(ref int index, string expression, InsideQuoteModel quoteModel = null)
+        [Fact]
+        public static void ExecuteBooleanExpression()
         {
+            int index = 1;
+            string expression = ".true.";
+            string result = "";
+
             if (index + 3 < expression.Length)
             {
                 if (index == 0)
@@ -24,17 +30,17 @@ namespace MonoScript.Runtime
                     if (expression[index] == 't' && expression[index + 1] == 'r' && expression[index + 2] == 'u' && expression[index + 3] == 'e')
                     {
                         if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
-                            return true;
+                            result = "true";
                         if (expression.Length == 4)
-                            return true;
+                            result = "true";
                     }
 
                     if (expression[index] == 'f' && expression[index + 1] == 'a' && expression[index + 2] == 'l' && expression[index + 3] == 's' && expression[index + 4] == 'e')
                     {
                         if (index + 5 >= expression.Length || !expression[index + 5].Contains(ReservedCollection.AllowedNames))
-                            return false;
+                            result = "false";
                         if (expression.Length == 5)
-                            return false;
+                            result = "false";
                     }
                 }
                 if (index - 1 >= 0 && !expression[index - 1].Contains(ReservedCollection.AllowedNames))
@@ -42,31 +48,34 @@ namespace MonoScript.Runtime
                     if (expression[index] == 't' && expression[index + 1] == 'r' && expression[index + 2] == 'u' && expression[index + 3] == 'e')
                     {
                         if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
-                            return true;
+                            result = "true";
                         if (expression.Length == 4)
-                            return true;
+                            result = "true";
                     }
 
                     if (expression[index] == 'f' && expression[index + 1] == 'a' && expression[index + 2] == 'l' && expression[index + 3] == 's' && expression[index + 4] == 'e')
                     {
                         if (index + 5 >= expression.Length || !expression[index + 5].Contains(ReservedCollection.AllowedNames))
-                            return false;
+                            result = "false";
                         if (expression.Length == 5)
-                            return false;
+                            result = "false";
                     }
                 }
             }
 
-            return null;
+            Assert.Equal("true", result);
         }
-        public static dynamic ExecuteNumberExpression(ref int index, string expression, InsideQuoteModel quoteModel = null)
+        [Fact]
+        public static void ExecuteNumberExpression()
         {
+            int index = 0;
+            string expression = "2. 200.d. ToString()";
+            double expected = 2;
+
             string numberString = string.Empty;
             bool hasBodyNumber = false, hasResidue = false;
             double resultDouble = -1;
-
-            if (quoteModel == null)
-                quoteModel = new InsideQuoteModel();
+            InsideQuoteModel quoteModel = new InsideQuoteModel();
 
             for (; index < expression.Length; index++)
             {
@@ -100,18 +109,14 @@ namespace MonoScript.Runtime
                                         {
                                             if (expression[index + 1] == ' ')
                                             {
-                                                if (double.TryParse(numberString, out resultDouble))
-                                                    return resultDouble;
-
+                                                double.TryParse(numberString, out resultDouble);
                                                 break;
                                             }
                                         }
                                     }
                                     else
                                     {
-                                        if (double.TryParse(numberString, out resultDouble))
-                                            return resultDouble;
-
+                                        double.TryParse(numberString, out resultDouble);
                                         break;
                                     }
                                 }
@@ -135,9 +140,7 @@ namespace MonoScript.Runtime
                             {
                                 if (hasBodyNumber)
                                 {
-                                    if (double.TryParse(numberString, out resultDouble))
-                                        return resultDouble;
-
+                                    double.TryParse(numberString, out resultDouble);
                                     break;
                                 }
                             }
@@ -148,18 +151,14 @@ namespace MonoScript.Runtime
                             {
                                 if (hasBodyNumber)
                                 {
-                                    if (double.TryParse(numberString, out resultDouble))
-                                        return resultDouble;
-
+                                    double.TryParse(numberString, out resultDouble);
                                     break;
                                 }
                                 else
                                 {
                                     if (numberString.Length >= 2)
                                     {
-                                        if (double.TryParse(numberString, out resultDouble))
-                                            return resultDouble;
-
+                                        double.TryParse(numberString, out resultDouble);
                                         break;
                                     }
                                     else
@@ -184,15 +183,18 @@ namespace MonoScript.Runtime
                 }
             }
 
-            return null;
+            Assert.Equal(expected, resultDouble);
         }
-        public static dynamic ExecuteStringExpression(ref int index, string expression, InsideQuoteModel quoteModel = null)
+        [Fact]
+        public static void ExecuteStringExpression()
         {
-            string resultString = string.Empty;
-            bool firstOpen = quoteModel == null ? false : quoteModel.HasQuotes;
+            string expression = @"@'data\'file'ffff";
+            string expected = @"data\";
 
-            if (quoteModel == null)
-                quoteModel = new InsideQuoteModel();
+            InsideQuoteModel quoteModel = new InsideQuoteModel();
+            bool firstOpen = quoteModel == null ? false : quoteModel.HasQuotes;
+            int index = 0;
+            string resultString = string.Empty;
 
             for (; index < expression.Length; index++)
             {
@@ -232,7 +234,7 @@ namespace MonoScript.Runtime
                     break;
             }
 
-            return resultString;
+            Assert.Equal(expected, resultString);
         }
         public static dynamic ExecuteArrayExpression(ref int index, string expression, FindContext context)
         {
@@ -245,7 +247,7 @@ namespace MonoScript.Runtime
             {
                 Extensions.IsOpenQuote(expression, index, ref quoteModel);
 
-                if (quoteModel.HasQuotes || !expression[index].Contains("[],"))
+                if (quoteModel.HasQuotes || (!quoteModel.HasQuotes && !expression[index].Contains("[],")))
                     tmpex += expression[index];
 
                 if (!quoteModel.HasQuotes)
