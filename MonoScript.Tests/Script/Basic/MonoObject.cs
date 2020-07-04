@@ -57,28 +57,37 @@ namespace MonoScript.Script.Basic
 
             switch (name)
             {
-                //case "namespace": return false;
-                //case "class": return false;
-                //case "struct": return false;
-                //case "enum": return false;
-                //case "def": return false;
-                //case "for": return false;
-                //case "foreach": return false;
-                //case "while": return false;
-                //case "do": return false;
-                //case "if": return false;
-                //case "else": return false;
-                //case "public": return false;
-                //case "private": return false;
-                //case "protected": return false;
-                //case "const": return false;
-                //case "static": return false;
-                //case "true": return false;
-                //case "false": return false;
-                //case "sdef": return false;
-                //case "null": return false;
-                //case "import": return false;
+                case "namespace": return false;
+                case "class": return false;
+                case "struct": return false;
+                case "enum": return false;
+                case "def": return false;
+                case "sdef": return false;
+                case "for": return false;
+                case "foreach": return false;
+                case "switch": return false;
+                case "while": return false;
+                case "do": return false;
+                case "if": return false;
+                case "else": return false;
+                case "public": return false;
+                case "private": return false;
+                case "protected": return false;
+                case "const": return false;
+                case "static": return false;
+                case "readonly": return false;
+                case "true": return false;
+                case "false": return false;
+                case "null": return false;
+                case "import": return false;
                 case "using": return false;
+                case "this": return false;
+                case "base": return false;
+                case "virtual": return false;
+                case "ovveride": return false;
+                case "sealed": return false;
+                case "new": return false;
+                case "inherit": return false;
                 default:
                     break;
             }

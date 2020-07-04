@@ -9,6 +9,7 @@ using MonoScript.Script.Elements;
 using MonoScript.Script.Types;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Xunit;
 
@@ -16,6 +17,107 @@ namespace MonoScript.Runtime
 {
     public static class ObjectExpressions
     {
+        public static dynamic ExecuteDecrementExpression(ref int index, string expression, string objectPath, dynamic lastObj, FindContext context)
+        {
+            if (lastObj == null)
+            {
+                if (string.IsNullOrWhiteSpace(objectPath))
+                {
+                    InsideQuoteModel quoteModel = new InsideQuoteModel();
+                    for (; index < expression.Length; index++)
+                    {
+                        Extensions.IsOpenQuote(expression, index, ref quoteModel);
+
+                        if (!quoteModel.HasQuotes)
+                        {
+                            if (expression[index].Contains(ReservedCollection.AllowedNames))
+                                objectPath += expression[index];
+                            else if (!expression[index].Contains("\r\n\t "))
+                                break;
+                        }
+                        else
+                            break;
+                    }
+
+                    lastObj = Finder.FindObject(objectPath, context);
+
+                    if (lastObj is Field field && field.Value is double)
+                        --field.Value;
+                    else
+                        MLog.AppErrors.Add(new AppMessage("Use decrement is possible only for fields of type Number.", expression));
+                }
+                else
+                {
+                    lastObj = Finder.FindObject(objectPath, context);
+
+                    if (lastObj is Field field && field.Value is double)
+                        field.Value--;
+                    else
+                        MLog.AppErrors.Add(new AppMessage("Use decrement is possible only for fields of type Number.", expression));
+                }
+            }
+            else
+            {
+                if (lastObj is Field field && field.Value is double)
+                    field.Value--;
+                else
+                    MLog.AppErrors.Add(new AppMessage("Use decrement is possible only for fields of type Number.", expression));
+            }
+
+
+            return lastObj;
+        }
+        public static dynamic ExecuteIncrementExpression(ref int index, string expression, string objectPath, dynamic lastObj, FindContext context)
+        {
+            if (lastObj == null)
+            {
+                if (string.IsNullOrWhiteSpace(objectPath))
+                {
+                    InsideQuoteModel quoteModel = new InsideQuoteModel();
+                    for (; index < expression.Length; index++)
+                    {
+                        Extensions.IsOpenQuote(expression, index, ref quoteModel);
+
+                        if (!quoteModel.HasQuotes)
+                        {
+                            if (expression[index].Contains(ReservedCollection.AllowedNames))
+                                objectPath += expression[index];
+                            else if (!expression[index].Contains("\r\n\t "))
+                                break;
+                        }
+                        else
+                            break;
+                    }
+
+                    lastObj = Finder.FindObject(objectPath, context);
+
+                    if (lastObj is Field field && field.Value is double)
+                        ++field.Value;
+                    else
+                        MLog.AppErrors.Add(new AppMessage("Use increment is possible only for fields of type Number.", expression));
+                }
+                else
+                {
+                    lastObj = Finder.FindObject(objectPath, context);
+
+                    if (lastObj is Field field && field.Value is double)
+                        field.Value++;
+                    else
+                        MLog.AppErrors.Add(new AppMessage("Use increment is possible only for fields of type Number.", expression));
+                }
+            }
+            else
+            {
+                if (lastObj is Field field && field.Value is double)
+                    field.Value++;
+                else
+                    MLog.AppErrors.Add(new AppMessage("Use increment is possible only for fields of type Number.", expression));
+            }
+
+
+            return lastObj;
+        }
+
         [Fact]
         public static void ExecuteThisExpression()
         {
@@ -54,7 +156,7 @@ namespace MonoScript.Runtime
 
             if (resultString == "this")
             {
-                if (context.IsStaticContext)
+                if (context.IsStaticObject)
                     MLog.AppErrors.Add(new AppMessage("Operator this cannot be called in a static class.", expression));
             }
 
@@ -502,6 +604,56 @@ namespace MonoScript.Runtime
             }
 
             return null;
+        }
+        public static dynamic ExecuteOperatorGetElementExpression(ref int index, string expression, dynamic lastObj, FindContext context)
+        {
+            if (lastObj != null)
+            {
+                if (lastObj is MonoType objType)
+                {
+                    Method overloadMethod = objType.OverloadOperators.FirstOrDefault(sdef => sdef.Name == OperatorCollection.GetElement.Name);
+
+                    if (overloadMethod != null)
+                    {
+                        var inputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref index), context);
+
+                        LocalSpace methodLocalSpace = HelperExpressions.GetMethodLocalSpace(overloadMethod.Parameters, inputs, overloadMethod.FullPath);
+                        lastObj = ObjectExpressions.ExecuteMethod(overloadMethod, methodLocalSpace);
+                    }
+                    else
+                        MLog.AppErrors.Add(new AppMessage("No overload method found for GetElement statement.", $"Object {objType.Name}"));
+                }
+                else if (Extensions.HasEnumerator(lastObj))
+                {
+                    var inputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref index), context);
+
+                    if (inputs.Count == 1 && inputs[0].Value is double numberValue)
+                    {
+                        lastObj = lastObj[(int)int.Parse(numberValue.ToString().Split(',')[0])];
+                    }
+                    else
+                        MLog.AppErrors.Add(new AppMessage("Invalid array element retrieval options.", expression));
+                }
+                else
+                    MLog.AppErrors.Add(new AppMessage("An object is not an array, structure, or class.", expression));
+            }
+
+            return lastObj;
+        }
+        public static dynamic ExecuteMethodExpression(ref int index, string expression, string methodPath, dynamic lastObj, FindContext context)
+        {
+            if (lastObj is Method foundMethod)
+            {
+                var inputs = HelperExpressions.GetObjectMethodParameters(HelperExpressions.GetStringMethodParameters(expression, ref index), context);
+                LocalSpace methodLocalSpace = HelperExpressions.GetMethodLocalSpace(foundMethod.Parameters, inputs, foundMethod.FullPath);
+
+                if (foundMethod.IsConstructor)
+                    ExecuteConstructor(foundMethod, methodLocalSpace);
+                else
+                    return ExecuteMethod(foundMethod, methodLocalSpace);
+            }
+
+            return BasicMethods.InvokeMethod(methodPath, lastObj);
         }
     }
 }

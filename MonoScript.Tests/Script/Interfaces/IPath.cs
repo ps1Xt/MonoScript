@@ -76,6 +76,10 @@ namespace MonoScript.Script.Interfaces
         {
             return Regex.Replace(value, "[\\s;]", "");
         }
+        public static string NormalizeWithTrim(string value)
+        {
+            return value.Trim('\n', '\r', ' ');
+        }
         public static string CombinePath(string path, string parentPath)
         {
             if (path == null)
