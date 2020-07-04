@@ -488,8 +488,13 @@ namespace MonoScript.Runtime
                     localSpace.Fields.Add(new Field(overloadMethod.Parameters[0].Name, null) { Value = leftObj });
                     localSpace.Fields.Add(new Field(overloadMethod.Parameters[1].Name, null) { Value = rightObj });
 
+                    FindContext overloadMethodFindContext = new FindContext(overloadMethod);
+                    overloadMethodFindContext.LocalSpace = localSpace;
+                    overloadMethodFindContext.MonoType = overloadMethod.ParentObject as MonoType;
+                    overloadMethodFindContext.ScriptFile = overloadMethodFindContext?.MonoType.ParentObject as ScriptFile;
+
                     if (!context.IsStaticObject)
-                        return ExecuteScript(overloadMethod.Content, new FindContext(overloadMethod) { LocalSpace = localSpace, MonoType = context.MonoType, ScriptFile = context.ScriptFile }, ExecuteScriptContextCollection.Method);
+                        return ExecuteScript(overloadMethod.Content, overloadMethodFindContext, ExecuteScriptContextCollection.Method);
 
                     MLog.AppErrors.Add(new AppMessage("Operators cannot be overridden in static classes.", errorSource));
                 }
@@ -652,7 +657,12 @@ namespace MonoScript.Runtime
 
                                             if (!context.IsStaticObject)
                                             {
-                                                dynamic result = ExecuteScript(overloadMethod.Content, new FindContext(overloadMethod) { LocalSpace = overloadLocalSpace, MonoType = context.MonoType, ScriptFile = context.ScriptFile }, ExecuteScriptContextCollection.Method);
+                                                FindContext overloadMethodFindContext = new FindContext(overloadMethod);
+                                                overloadMethodFindContext.LocalSpace = overloadLocalSpace;
+                                                overloadMethodFindContext.MonoType = overloadMethod.ParentObject as MonoType;
+                                                overloadMethodFindContext.ScriptFile = overloadMethodFindContext?.MonoType.ParentObject as ScriptFile;
+
+                                                dynamic result = ExecuteScript(overloadMethod.Content, overloadMethodFindContext, ExecuteScriptContextCollection.Method);
                                                 string tmpname = $"monosys_{context.LocalSpace.FreeMonoSysValue}";
 
                                                 context.LocalSpace.Fields.Add(new Field(tmpname, null) { Value = result });
@@ -732,7 +742,7 @@ namespace MonoScript.Runtime
 
             dynamic lastObj = null;
             string objectName = string.Empty;
-            bool canMakeArray = true;
+            bool canMakeArray = true, canNext = false;
             InsideQuoteModel quoteModel = new InsideQuoteModel();
 
             for (int i = 0; i < expression.Length; i++)
@@ -822,21 +832,6 @@ namespace MonoScript.Runtime
                             else if (result is null)
                                 i = saveIndex;
                         }
-
-                        if (i + 3 < expression.Length && expression[i] == 'b' && expression[i + 1] == 'a' && expression[i + 2] == 's')
-                        {
-                            int saveIndex = i;
-                            var result = ObjectExpressions.ExecuteBaseExpression(ref i, expression, context);
-
-                            if (result is Class)
-                            {
-                                lastObj = result;
-                                objectName = string.Empty;
-                                continue;
-                            }
-                            else if (result is null)
-                                i = saveIndex;
-                        }
                     }
 
                     if (canMakeArray && expression[i] == '[')
@@ -879,7 +874,39 @@ namespace MonoScript.Runtime
                         }
                         dynamic FindInLastObjectMethod(string methodName, dynamic destObj)
                         {
+                            if (destObj is MonoType objType)
+                            {
+                                Method foundMethod = objType.Methods.FirstOrDefault(x => x.Name == methodName);
+
+                                if (foundMethod != null)
+                                {
+                                    bool? allowedAccess = foundMethod.Modifiers.Contains("public");
+
+                                    if (!allowedAccess.HasValue && foundMethod.Modifiers.Contains("private"))
+                                        allowedAccess = objType.FullPath == context.MonoType?.FullPath;
+
+                                    if (!allowedAccess.HasValue && foundMethod.Modifiers.Contains("protected"))
+                                        allowedAccess = (objType as Class)?.ContainsParent(context.MonoType as Class);
+
+                                    if (allowedAccess.HasValue && allowedAccess.Value)
+                                        return lastObj;
+
+                                    MLog.AppErrors.Add(new AppMessage("Object is below access level.", $"Method {methodName}"));
+                                }
+                                else
+                                    MLog.AppErrors.Add(new AppMessage("An object with this name was not found in the class or structure.", $"Method {methodName}"));
+                            }
+                            else
+                                MLog.AppErrors.Add(new AppMessage("An object is not a class or structure.", $"Method {lastObj}"));
+
                             return null;
+                        }
+                        dynamic ObjectFromField(dynamic lastObj)
+                        {
+                            if (lastObj is Field lastObjField)
+                                lastObj = lastObjField.Value;
+
+                            return lastObj;
                         }
 
                         objectName = IPath.NormalizeWithTrim(objectName);
@@ -887,7 +914,7 @@ namespace MonoScript.Runtime
                         if (i + 1 == expression.Length && !string.IsNullOrWhiteSpace(objectName))
                         {
                             if (lastObj == null)
-                                lastObj = Finder.FindObject(objectName, context);
+                                lastObj = ObjectFromField(Finder.FindObject(objectName, context));
                             else
                                 lastObj = FindInLastObjectField(objectName, lastObj);
                         }
@@ -899,53 +926,78 @@ namespace MonoScript.Runtime
                                 if (lastObj != null)
                                     lastObj = FindInLastObjectField(objectName, lastObj);
                                 else
-                                    lastObj = Finder.FindObject(objectName, context);
+                                    lastObj = ObjectFromField(Finder.FindObject(objectName, context, Finder.FindOption.NoStatic));
                             }
 
-                            lastObj = ObjectExpressions.ExecuteOperatorGetElement(expression, ref i, lastObj, context);
+                            lastObj = ObjectExpressions.ExecuteOperatorGetElementExpression(ref i, expression, lastObj, context);
+                            objectName = string.Empty;
                         }
 
-                        
-                        //if (expression[i] == '(')
-                        //{
-                        //    if (!string.IsNullOrWhiteSpace(objectName))
-                        //    {
-                        //        if (lastObj == null)
-                        //        {
+                        if (expression[i] == '(')
+                        {
+                            if (!string.IsNullOrWhiteSpace(objectName))
+                            {
+                                if (lastObj != null)
+                                    lastObj = FindInLastObjectMethod(objectName, lastObj);
+                                else
+                                    lastObj = ObjectFromField(Finder.FindObject(objectName, context));
+                            }
 
-                        //        }
-                        //        else
-                        //        {
+                            //добавить инкремент декремент, использовать внутри этого метода Field.Value
 
-                        //        }
-                        //    }
-                        //}
+                            lastObj = ObjectExpressions.ExecuteMethodExpression(ref i, expression, objectName, lastObj, context);
+                            objectName = string.Empty;
+                        }
 
-                        //if (expression[i] == '.')
-                        //{
-                        //    if (!string.IsNullOrWhiteSpace(objectName))
-                        //    {
-                        //        if (lastObj == null)
-                        //        {
+                        if (expression[i] == '.')
+                        {
+                            if (!string.IsNullOrWhiteSpace(objectName))
+                            {
+                                if (lastObj == null)
+                                {
+                                    lastObj = Finder.FindObject(objectName, context);
 
-                        //        }
-                        //        else
-                        //        {
-                        //            if (!canNext)
-                        //                canNext = true;
-                        //            else
-                        //                MLog.AppErrors.Add(new AppMessage("Incorrect dot declaration.", expression));
+                                    if (lastObj != null)
+                                        objectName = string.Empty;
+                                }
+                                else
+                                {
+                                    if (!canNext)
+                                        canNext = true;
+                                    else
+                                        MLog.AppErrors.Add(new AppMessage("Incorrect dot declaration.", expression));
 
-                        //            if (!string.IsNullOrEmpty(objectName))
-                        //            {
-                        //                lastObj = FindInLastObjectField(objectName, lastObj);
-                        //            }
-                        //        }
-                        //    }
-                        //}
+                                    lastObj = FindInLastObjectField(objectName, lastObj);
+                                    objectName = string.Empty;
+                                }
+                            }
+                        }
+
+                        if (expression[i] == '+')
+                        {
+                            if (i + 1 < expression.Length && expression[i + 1] == '+')
+                                lastObj = ObjectExpressions.ExecuteIncrementExpression(ref i, expression, objectName, lastObj, context);
+                            else
+                                MLog.AppErrors.Add(new AppMessage("Incorrect increment declaration.", expression));
+
+                            objectName = string.Empty;
+                        }
+
+                        if (expression[i] == '-')
+                        {
+                            if (i + 1 < expression.Length && expression[i + 1] == '-')
+                                lastObj = ObjectExpressions.ExecuteDecrementExpression(ref i, expression, objectName, lastObj, context);
+                            else
+                                MLog.AppErrors.Add(new AppMessage("Incorrect decrement declaration.", expression));
+
+                            objectName = string.Empty;
+                        }
                     }
                 }
             }
+
+            if (lastObj is Field field)
+                lastObj = field.Value;
 
             return lastObj;
         }

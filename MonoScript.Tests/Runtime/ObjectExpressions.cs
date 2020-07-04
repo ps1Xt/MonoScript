@@ -17,60 +17,6 @@ namespace MonoScript.Runtime
     public static class ObjectExpressions
     {
         [Fact]
-        public static void ExecuteBaseExpression()
-        {
-            int index = 0;
-            string expression = "base.";
-            string resultString = string.Empty;
-            FindContext context = new FindContext(false);
-
-            if (index + 3 < expression.Length)
-            {
-                if (index == 0)
-                {
-                    if (expression[index] == 'b' && expression[index + 1] == 'a' && expression[index + 2] == 's' && expression[index + 3] == 'e')
-                    {
-                        index += 3;
-
-                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
-                            resultString = "base";
-                        if (expression.Length == 4)
-                            resultString = "base";
-                    }
-                }
-                if (index - 1 >= 0 && !expression[index - 1].Contains(ReservedCollection.AllowedNames))
-                {
-                    if (expression[index] == 'b' && expression[index + 1] == 'a' && expression[index + 2] == 's' && expression[index + 3] == 'e')
-                    {
-                        index += 3;
-
-                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
-                            resultString = "base";
-                        if (expression.Length == 4)
-                            resultString = "base";
-                    }
-                }
-            }
-
-            if (resultString == "base")
-            {
-                if (context.IsStaticContext)
-                {
-                    MLog.AppErrors.Add(new AppMessage("Operator this cannot be called in a static class.", expression));
-                    return;
-                }
-                else
-                {
-                    if (context.MonoType is Class objClass)
-                    {
-
-                    }
-                }
-            }
-
-            Assert.Equal("base", resultString);
-        }
-        [Fact]
         public static void ExecuteThisExpression()
         {
             int index = 0;
