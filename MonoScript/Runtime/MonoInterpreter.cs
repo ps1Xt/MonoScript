@@ -94,7 +94,7 @@ namespace MonoScript.Runtime
                     if (!hasOperator)
                     {
                         int index = 0;
-                        object newObj = ExecuteConditionalExpression(scriptex, context, ref index);
+                        object newObj = ExecuteConditionalExpression(scriptex, ref index, context);
                     }
 
                     Refresh();
@@ -206,103 +206,289 @@ namespace MonoScript.Runtime
             if (destObj.Modifiers.Contains("const"))
             {
                 if (executeContext == ExecuteContextCollection.Const)
-                    return ExecuteConditionalExpression(expression, context, ref index);
+                    return ExecuteConditionalExpression(expression, ref index, context);
 
                 MLog.AppErrors.Add(new AppMessage("Operations with a constant are allowed only during the declaration.", expression));
             }
             else if (destObj.Modifiers.Contains("readonly"))
             {
                 if (executeContext == ExecuteContextCollection.Readonly)
-                    return ExecuteConditionalExpression(expression, context, ref index);
+                    return ExecuteConditionalExpression(expression, ref index, context);
 
                 MLog.AppErrors.Add(new AppMessage("Readonly operations are permitted only when declared or in the constructor body.", expression));
             }
             else
-                 return ExecuteConditionalExpression(expression, context, ref index);
+                 return ExecuteConditionalExpression(expression, ref index, context);
 
             return null;
         }
-        public static dynamic ExecuteConditionalExpression(string expression, FindContext context, ref int pos)
+        public static dynamic ExecuteConditionalExpression(string expression, ref int index, FindContext context)
         {
             if (expression == null)
                 expression = string.Empty;
 
+            dynamic lastObj = null;
             string tmpex = string.Empty;
+            bool? lastBool = null;
             MethodExpressionModel methodExpression = new MethodExpressionModel();
             SquareBracketExpressionModel bracketExpression = new SquareBracketExpressionModel();
             InsideQuoteModel insideQuote = new InsideQuoteModel();
 
-            for (; pos < expression.Length; pos++)
+            for (; index < expression.Length; index++)
             {
-                Extensions.IsOpenQuote(expression, pos, ref insideQuote);
+                Extensions.IsOpenQuote(expression, index, ref insideQuote);
 
-                if (insideQuote.HasQuotes || methodExpression.HasOpenBracket || bracketExpression.HasOpenBracket || !expression[pos].Contains("()&|"))
-                    tmpex += expression[pos];
+                if (insideQuote.HasQuotes || methodExpression.HasOpenBracket || bracketExpression.HasOpenBracket || !expression[index].Contains("()&|"))
+                    tmpex += expression[index];
 
-                methodExpression.Read(expression, pos);
+                methodExpression.Read(expression, index);
 
                 if (!insideQuote.HasQuotes)
                 {
                     if (!methodExpression.HasOpenBracket && !bracketExpression.HasOpenBracket)
                     {
-                        if (expression[pos] == '[')
+                        if (expression[index] == '[')
                         {
                             bracketExpression.OpenBracketCount++;
                             continue;
                         }
 
-                        if (expression[pos] == '(')
+                        if (expression[index] == '(')
                         {
                             if (methodExpression.MethodName != null)
                             {
                                 methodExpression.OpenBracketCount++;
-                                tmpex += expression[pos];
+                                tmpex += expression[index];
                                 continue;
                             }
                             
-                            pos++;
-                            var executeResult = ExecuteConditionalExpression(expression, context, ref pos);
+                            index++;
+                            var executeResult = ExecuteConditionalExpression(expression, ref index, context);
 
-                            
+                            if (executeResult is bool)
+                            {
+                                lastBool = executeResult;
+                                lastObj = executeResult;
+                                tmpex = executeResult.ToString().ToLower();
+                            }
+                            else
+                            {
+                                lastBool = null;
+                                lastObj = executeResult;
+                                tmpex = executeResult == null ? string.Empty : executeResult.ToString();
+                            }
+
+                            if (index >= expression.Length)
+                                continue;
+
+                            if (expression[index] != ')')
+                            {
+                                index--;
+                                continue;
+                            }
                         }
 
-                        if (expression[pos] == '&')
+                        if (expression[index] == '&')
                         {
-                            if (pos + 1 >= expression.Length || expression[pos + 1] != '&')
+                            if (index + 1 >= expression.Length || expression[index + 1] != '&')
                                 MLog.AppErrors.Add(new AppMessage("Unknown operator. &", expression));
 
-                            pos += 2;
+                            index += 2;
 
+                            if (!lastBool.HasValue)
+                            {
+                                var executeResult = ExecuteEqualityExpression(tmpex, context);
 
+                                if (executeResult is bool)
+                                {
+                                    lastBool = executeResult;
+                                    lastObj = executeResult;
+                                    tmpex = string.Empty;
+                                }
+                                else
+                                {
+                                    MLog.AppErrors.Add(new AppMessage("Only logical entities can participate in a conditional statement.", tmpex));
+                                    return null;
+                                }
+                            }
+
+                            if (lastBool.HasValue)
+                            {
+                                if (lastBool.Value)
+                                {
+                                    tmpex = string.Empty;
+                                    continue;
+                                }
+                                else
+                                {
+                                    tmpex = string.Empty;
+                                    char? bracketChar = null;
+                                    int bracketRoundCount = 0;
+                                    int bracketSquareCount = 0;
+                                    InsideQuoteModel subQuoteModel = new InsideQuoteModel();
+
+                                    for (; index < expression.Length; index++)
+                                    {
+                                        Extensions.IsOpenQuote(expression, index, ref insideQuote);
+
+                                        if (!subQuoteModel.HasQuotes)
+                                        {
+                                            if (bracketChar == null && expression[index].Contains("(["))
+                                            {
+                                                if (expression[index] == '(')
+                                                    bracketRoundCount++;
+                                                if (expression[index] == '[')
+                                                    bracketSquareCount++;
+
+                                                bracketChar = expression[index];
+                                                continue;
+                                            }
+
+                                            if (expression[index] == '|' && bracketRoundCount == 0 && bracketSquareCount == 0)
+                                            {
+                                                if (index < expression.Length && expression[index + 1] == '|')
+                                                {
+                                                    index++;
+                                                    continue;
+                                                }
+                                                else
+                                                    MLog.AppErrors.Add(new AppMessage("Incorrect operator declaration or. |", tmpex));
+                                            }
+
+                                            if (bracketChar == '[' && expression[index] == '[')
+                                                bracketSquareCount++;
+
+                                            if (bracketChar == '[' && expression[index] == ']')
+                                                bracketSquareCount--;
+
+                                            if (bracketChar == '(' && expression[index] == '(')
+                                                bracketRoundCount++;
+
+                                            if (bracketChar == '(' && expression[index] == ')')
+                                            {
+                                                bracketRoundCount--;
+
+                                                if (bracketRoundCount == -1)
+                                                    break;
+                                            }
+
+                                            if (bracketChar == null && expression[index] == ')')
+                                                break;
+                                        }
+                                    }
+
+                                    if (index >= expression.Length || expression[index] == ')')
+                                    {
+                                        index++;
+                                        return true;
+                                    }
+                                }
+                            }
                         }
 
-                        if (expression[pos] == '|')
+                        if (expression[index] == '|')
                         {
-                            if (pos + 1 >= expression.Length || expression[pos + 1] != '|')
+                            if (index + 1 >= expression.Length || expression[index + 1] != '|')
                                 MLog.AppErrors.Add(new AppMessage("Unknown operator. |", expression));
 
-                            pos += 2;
+                            index += 2;
 
+                            if (!lastBool.HasValue)
+                            {
+                                var executeResult = ExecuteEqualityExpression(tmpex, context);
 
+                                if (executeResult is bool)
+                                {
+                                    lastBool = executeResult;
+                                    lastObj = executeResult;
+                                    tmpex = string.Empty;
+                                }
+                                else
+                                {
+                                    MLog.AppErrors.Add(new AppMessage("Only logical entities can participate in a conditional statement.", tmpex));
+                                    return null;
+                                }
+                            }
 
+                            if (lastBool.HasValue)
+                            {
+                                if (!lastBool.Value)
+                                {
+                                    lastBool = null;
+                                    lastObj = null;
+                                    tmpex = string.Empty;
+                                    continue;
+                                }
+                                else
+                                {
+                                    char? bracketChar = null;
+                                    int bracketRoundCount = 0;
+                                    int bracketSquareCount = 0;
+                                    InsideQuoteModel subQuoteModel = new InsideQuoteModel();
 
+                                    for (; index < expression.Length; index++)
+                                    {
+                                        Extensions.IsOpenQuote(expression, index, ref insideQuote);
+
+                                        if (!subQuoteModel.HasQuotes)
+                                        {
+                                            if (bracketChar == null && expression[index].Contains("(["))
+                                            {
+                                                if (expression[index] == '(')
+                                                    bracketRoundCount++;
+                                                if (expression[index] == '[')
+                                                    bracketSquareCount++;
+
+                                                bracketChar = expression[index];
+                                                continue;
+                                            }
+
+                                            if (bracketChar == '[' && expression[index] == '[')
+                                                bracketSquareCount++;
+
+                                            if (bracketChar == '[' && expression[index] == ']')
+                                                bracketSquareCount--;
+
+                                            if (bracketChar == '(' && expression[index] == '(')
+                                                bracketRoundCount++;
+
+                                            if (bracketChar == '(' && expression[index] == ')')
+                                            {
+                                                bracketRoundCount--;
+
+                                                if (bracketRoundCount == -1)
+                                                    break;
+                                            }
+
+                                            if (bracketChar == null && expression[index] == ')')
+                                                break;
+                                        }
+                                    }
+
+                                    if (index >= expression.Length || expression[index] == ')')
+                                    {
+                                        index++;
+                                        return true;
+                                    }
+                                }
+                            }
                         }
 
-                        if (expression[pos] == ')')
+                        if (expression[index] == ')')
                         {
-                            pos++;
+                            index++;
                             break;
                         }
                     }
 
-                    if (pos < expression.Length)
+                    if (index < expression.Length)
                     {
                         if (methodExpression.HasOpenBracket)
                         {
-                            if (expression[pos] == '(')
+                            if (expression[index] == '(')
                                 methodExpression.OpenBracketCount++;
 
-                            if (expression[pos] == ')')
+                            if (expression[index] == ')')
                             {
                                 methodExpression.OpenBracketCount--;
                                 continue;
@@ -311,10 +497,10 @@ namespace MonoScript.Runtime
 
                         if (bracketExpression.HasOpenBracket)
                         {
-                            if (expression[pos] == '[')
+                            if (expression[index] == '[')
                                 bracketExpression.OpenBracketCount++;
 
-                            if (expression[pos] == ']')
+                            if (expression[index] == ']')
                             {
                                 bracketExpression.OpenBracketCount--;
                                 continue;
@@ -327,7 +513,10 @@ namespace MonoScript.Runtime
             if (methodExpression.OpenBracketCount > 0)
                 MLog.AppErrors.Add(new AppMessage("Missing closing bracket. ')'", expression));
 
-            return ExecuteEqualityExpression(tmpex, context);
+            if (!string.IsNullOrWhiteSpace(tmpex))
+                return ExecuteEqualityExpression(tmpex, context);
+            else
+                return lastObj;
         }
         public static dynamic ExecuteEqualityExpression(string expression, FindContext context)
         {
@@ -388,6 +577,9 @@ namespace MonoScript.Runtime
                         {
                             if (i + 1 < expression.Length && expression[i + 1] == '=')
                             {
+                                //string leftString = expression.Substring(0, i);
+                                //string rightString = expression.Substring(i + 2);
+
                                 dynamic leftObj = ExecuteArithmeticExpression(expression.Substring(0, i), context);
                                 dynamic rightObj = ExecuteArithmeticExpression(expression.Substring(i + 2), context);
 
@@ -596,12 +788,20 @@ namespace MonoScript.Runtime
                         string rightex = null;
 
                         if (expression[i] == '[')
+                        {
                             bracketExpression.OpenBracketCount++;
+                            continue;
+                        }
 
                         if (expression[i] == '(')
                         {
                             if (methodExpression.MethodName != null)
+                            {
                                 methodExpression.OpenBracketCount++;
+                                continue;
+                            }
+
+                            var executeResult = ExecuteArithmeticExpression(expression, context);
                         }
 
                         if (arithSign.Contains(expression[i]))
@@ -674,6 +874,8 @@ namespace MonoScript.Runtime
 
                                         continue;
                                     }
+
+                                    //переделать
 
                                     try
                                     {

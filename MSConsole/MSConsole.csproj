@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MonoScript">
+      <HintPath>..\MonoScript\bin\Debug\netstandard2.1\MonoScript.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

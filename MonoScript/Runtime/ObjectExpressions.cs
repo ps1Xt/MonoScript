@@ -204,7 +204,7 @@ namespace MonoScript.Runtime
                     {
                         index += 3;
 
-                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                        if (index + 1 >= expression.Length || !expression[index + 1].Contains(ReservedCollection.AllowedNames))
                             return true;
                         if (expression.Length == 4)
                             return true;
@@ -214,7 +214,7 @@ namespace MonoScript.Runtime
                     {
                         index += 4;
 
-                        if (index + 5 >= expression.Length || !expression[index + 5].Contains(ReservedCollection.AllowedNames))
+                        if (index + 1 >= expression.Length || !expression[index + 1].Contains(ReservedCollection.AllowedNames))
                             return false;
                         if (expression.Length == 5)
                             return false;
@@ -226,7 +226,7 @@ namespace MonoScript.Runtime
                     {
                         index += 3;
 
-                        if (index + 4 >= expression.Length || !expression[index + 4].Contains(ReservedCollection.AllowedNames))
+                        if (index + 1 >= expression.Length || !expression[index + 1].Contains(ReservedCollection.AllowedNames))
                             return true;
                         if (expression.Length == 4)
                             return true;
@@ -236,7 +236,7 @@ namespace MonoScript.Runtime
                     {
                         index += 4;
 
-                        if (index + 5 >= expression.Length || !expression[index + 5].Contains(ReservedCollection.AllowedNames))
+                        if (index + 1 >= expression.Length || !expression[index + 1].Contains(ReservedCollection.AllowedNames))
                             return false;
                         if (expression.Length == 5)
                             return false;
@@ -450,7 +450,7 @@ namespace MonoScript.Runtime
                     {
                         int pos = 0;
 
-                        arrayValues.Add(MonoInterpreter.ExecuteConditionalExpression(tmpex, context, ref pos));
+                        arrayValues.Add(MonoInterpreter.ExecuteConditionalExpression(tmpex, ref pos, context));
 
                         tmpex = null;
                         continue;
@@ -493,7 +493,7 @@ namespace MonoScript.Runtime
                     if (expression[index] == ']')
                     {
                         int pos = 0;
-                        arrayValues.Add(MonoInterpreter.ExecuteConditionalExpression(tmpex, context, ref pos));
+                        arrayValues.Add(MonoInterpreter.ExecuteConditionalExpression(tmpex, ref pos, context));
 
                         break;
                     }

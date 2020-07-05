@@ -37,5 +37,13 @@ namespace MonoScript.Libraries
 
             return null;
         }
+        public static dynamic ToLower(object obj)
+        {
+            return obj?.ToString().ToLower();
+        }
+        public static dynamic ToUpper(object obj)
+        {
+            return obj?.ToString().ToUpper();
+        }
     }
 }

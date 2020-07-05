@@ -91,7 +91,7 @@ namespace MonoScript.Runtime
                         string[] splitValues = stringValues[index].Split('=', 2);
                         string objName = splitValues[0].Trim(' ');
 
-                        methodInputs.Add((objName, MonoInterpreter.ExecuteConditionalExpression(splitValues[1], context, ref pos)));
+                        methodInputs.Add((objName, MonoInterpreter.ExecuteConditionalExpression(splitValues[1], ref pos, context)));
                         continue;
                     }
                 }
@@ -106,7 +106,7 @@ namespace MonoScript.Runtime
                         string[] splitValues = stringValues[index].Split('=', 2);
                         string objName = splitValues[0].Trim(' ');
 
-                        methodInputs.Add((objName, MonoInterpreter.ExecuteConditionalExpression(splitValues[1], context, ref pos)));
+                        methodInputs.Add((objName, MonoInterpreter.ExecuteConditionalExpression(splitValues[1], ref pos, context)));
                     }
                     else MLog.AppErrors.Add(new AppMessage("No assignment operator found for method object.", stringValues[index]));
                 }
@@ -114,7 +114,7 @@ namespace MonoScript.Runtime
                 {
                     int pos = 0;
 
-                    methodInputs.Add((null, MonoInterpreter.ExecuteConditionalExpression(stringValues[index], context, ref pos)));
+                    methodInputs.Add((null, MonoInterpreter.ExecuteConditionalExpression(stringValues[index], ref pos, context)));
                 }
             }
 
