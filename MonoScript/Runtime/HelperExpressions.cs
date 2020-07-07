@@ -19,54 +19,79 @@ namespace MonoScript.Runtime
             string tmpex = string.Empty;
             List<string> values = new List<string>();
 
+            char? bracketChar = expression[index];
+            int bracketRoundCount = 0;
+            int bracketSquareCount = 0;
             InsideQuoteModel quoteModel = new InsideQuoteModel();
-            char? openBracketChar = null;
-            int openCount = 0;
 
             for (; index < expression.Length; index++)
             {
                 Extensions.IsOpenQuote(expression, index, ref quoteModel);
 
-                if (quoteModel.HasQuotes || openCount > 1 || (!quoteModel.HasQuotes && !expression[index].Contains(",[]()")))
+                if (expression[index].Contains("(["))
+                {
+                    if (quoteModel.HasQuotes || bracketRoundCount > 0 || bracketSquareCount > 0)
+                        tmpex += expression[index];
+                }
+                else if (expression[index].Contains(")]"))
+                {
+                    if (quoteModel.HasQuotes || bracketRoundCount > 1 || bracketSquareCount > 1)
+                        tmpex += expression[index];
+                }
+                else if (expression[index].Contains(","))
+                {
+                    if (quoteModel.HasQuotes || bracketRoundCount > 1 || bracketSquareCount > 1)
+                        tmpex += expression[index];
+                }
+                else
                     tmpex += expression[index];
 
                 if (!quoteModel.HasQuotes)
                 {
-                    if (openCount == 1 && expression[index] == ',')
+                    if ((bracketRoundCount == 1 || bracketSquareCount == 1) && expression[index] == ',')
                     {
                         values.Add(tmpex);
                         tmpex = string.Empty;
                         continue;
                     }
 
-                    if (openBracketChar == null)
+                    if (bracketChar == null && expression[index].Contains("(["))
                     {
-                        if (expression[index].Contains("(["))
-                        {
-                            openBracketChar = expression[index];
-                            openCount++;
-                        }
+                        if (expression[index] == '(')
+                            bracketRoundCount++;
+                        if (expression[index] == '[')
+                            bracketSquareCount++;
+
+                        bracketChar = expression[index];
+                        continue;
                     }
-                    else
+
+                    if (bracketChar == '[' && expression[index] == '[')
+                        bracketSquareCount++;
+
+                    if (bracketChar == '[' && expression[index] == ']')
+                        bracketSquareCount--;
+
+                    if (bracketChar == '(' && expression[index] == '(')
+                        bracketRoundCount++;
+
+                    if (bracketChar == '(' && expression[index] == ')')
                     {
-                        if (expression[index] == openBracketChar)
-                        {
-                            openCount++;
-                            continue;
-                        }
+                        bracketRoundCount--;
 
-                        if ((openBracketChar == '(') && expression[index] == ')' || (openBracketChar == '[' && expression[index] == ']'))
-                            openCount--;
-
-                        if (openCount == 0)
-                        {
-                            if (!string.IsNullOrWhiteSpace(tmpex))
-                                values.Add(tmpex);
-
+                        if (bracketRoundCount == 0)
                             break;
-                        }
                     }
+
+                    if (bracketChar == null && expression[index] == ')')
+                        break;
                 }
+            }
+
+            if (bracketRoundCount == 0 && bracketSquareCount == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(tmpex))
+                    values.Add(tmpex);
             }
 
             return values;

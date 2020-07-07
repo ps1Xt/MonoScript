@@ -10,9 +10,7 @@ namespace MSConsole
         static void Main(string[] args)
         {
             int index = 0;
-            var result = MonoInterpreter.ExecuteConditionalExpression("((100  +   200   *   (   10   -   50)) /  20)", ref index, new FindContext(null));
-            //var result = MonoInterpreter.ExecuteConditionalExpression("(true || false || true || true).ToString()", ref index, new FindContext(null));
-            //var result = MonoInterpreter.ExecuteArithmeticExpression("(true && true) || (true && true && true)", new FindContext(null));
+            var result = MonoInterpreter.ExecuteConditionalExpression("!((!false).ToString().ToBoolean()) || false", ref index, new FindContext(null));
 
             var errors = MLog.AppErrors;
         }

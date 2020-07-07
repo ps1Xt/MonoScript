@@ -1,8 +1,6 @@
 ﻿using MonoScript.Collections;
 using MonoScript.Models;
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace MonoScript
 {
@@ -26,6 +24,19 @@ namespace MonoScript
                 foreach (var item2 in values)
                     if (item == item2)
                         return true;
+
+            return false;
+        }
+        public static bool Contains(this string arr, string arr2)
+        {
+            for (int i = 0; i < arr.Length; i++)
+            {
+                for (int j = 0; j < arr2.Length; j++)
+                {
+                    if (arr[i] == arr2[j])
+                        return true;
+                }
+            }
 
             return false;
         }

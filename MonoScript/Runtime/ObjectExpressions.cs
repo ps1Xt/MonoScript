@@ -250,6 +250,7 @@ namespace MonoScript.Runtime
         {
             string numberString = string.Empty;
             bool hasBodyNumber = false, hasResidue = false;
+            bool isNegative = false;
             double resultDouble;
 
             if (quoteModel == null)
@@ -279,6 +280,47 @@ namespace MonoScript.Runtime
                     }
                     else
                     {
+                        if (expression[index] == '+')
+                        {
+                            if (!string.IsNullOrWhiteSpace(numberString))
+                            {
+                                if (index + 1 < expression.Length && expression[index + 1] == '+')
+                                    MLog.AppErrors.Add(new AppMessage("Incorrect increment declaration.", expression));
+                                else
+                                    MLog.AppErrors.Add(new AppMessage("Invalid addition operator.", expression));
+
+                                return null;
+                            }
+                            else
+                                return null;
+                        }
+
+                        if (expression[index] == '-')
+                        {
+                            if (string.IsNullOrWhiteSpace(numberString))
+                            {
+                                if (!isNegative)
+                                {
+                                    isNegative = true;
+                                    numberString += "-";
+                                }
+                                else
+                                {
+                                    MLog.AppErrors.Add(new AppMessage("Incorrect decrement declaration.", expression));
+                                    return null;
+                                }
+                            }
+                            else
+                            {
+                                if (index + 1 < expression.Length && expression[index + 1] == '-')
+                                    MLog.AppErrors.Add(new AppMessage("Incorrect decrement declaration.", expression));
+                                else
+                                    MLog.AppErrors.Add(new AppMessage("Invalid subtraction operator.", expression));
+
+                                return null;
+                            }
+                        }
+
                         if (!hasResidue)
                         {
                             if (expression[index] == '.')
@@ -387,8 +429,14 @@ namespace MonoScript.Runtime
             string resultString = string.Empty;
             bool firstOpen = quoteModel == null ? false : quoteModel.HasQuotes;
 
-            if (quoteModel == null)
+            if (quoteModel != null)
+            {
+                if (expression[index] == quoteModel.Quote)
+                    index++;
+            }
+            else
                 quoteModel = new InsideQuoteModel();
+
 
             for (; index < expression.Length; index++)
             {
@@ -610,7 +658,18 @@ namespace MonoScript.Runtime
             if (lastObj == null)
             {
                 if (inputs.Count == 1)
-                    return BasicMethods.InvokeMethod(methodPath, lastObj);
+                {
+                    if (!string.IsNullOrEmpty(inputs[0].Name))
+                    {
+                        if (inputs[0].Name == "obj")
+                            return BasicMethods.InvokeMethod(methodPath, inputs[0].Value);
+                        else
+                            MLog.AppErrors.Add(new AppMessage("Input parameter with this name not found.", $"Method {methodPath}"));
+                    }
+                    else
+                        return BasicMethods.InvokeMethod(methodPath, inputs[0].Value);
+
+                }
                 else
                     MLog.AppErrors.Add(new AppMessage("Incorrect parameters method.", $"Method {methodPath}"));
             }

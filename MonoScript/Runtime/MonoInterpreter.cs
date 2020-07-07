@@ -11,6 +11,7 @@ using MonoScript.Collections;
 using MonoScript.Models.Interpreter;
 using MonoScript.Models.Script;
 using MonoScript.Models.Contexts;
+using System.Collections.Generic;
 
 namespace MonoScript.Runtime
 {
@@ -228,8 +229,10 @@ namespace MonoScript.Runtime
                 expression = string.Empty;
 
             dynamic lastObj = null;
-            string tmpex = string.Empty;
+            string tmpex = string.Empty, numberString = null;
             bool? lastBool = null;
+            //bool hasReverseBool = false;
+
             MethodExpressionModel methodExpression = new MethodExpressionModel();
             SquareBracketExpressionModel bracketExpression = new SquareBracketExpressionModel();
             InsideQuoteModel insideQuote = new InsideQuoteModel();
@@ -261,7 +264,7 @@ namespace MonoScript.Runtime
                                 tmpex += expression[index];
                                 continue;
                             }
-                            
+
                             index++;
                             var executeResult = ExecuteConditionalExpression(expression, ref index, context);
 
@@ -275,18 +278,18 @@ namespace MonoScript.Runtime
                             {
                                 lastBool = null;
                                 lastObj = executeResult;
-                                tmpex = executeResult == null ? string.Empty : executeResult.ToString();
+                                tmpex = executeResult == null ? string.Empty : tmpex + executeResult.ToString();
                             }
 
-                            if (index >= expression.Length)
-                                continue;
-
-                            if (expression[index] != ')')
+                            if (index < expression.Length && expression[index] == ')')
                             {
-                                index--;
-                                continue;
+                                index++;
+                                break;
                             }
-                        }
+
+                            index--;
+                            continue;
+                        } //если не будет правильно работать, менял только эти 2 метода ###
 
                         if (expression[index] == '&')
                         {
@@ -479,6 +482,32 @@ namespace MonoScript.Runtime
                             index++;
                             break;
                         }
+
+                        if (expression[index] == '!')
+                        {
+                            index++;
+                            var executeResult = ExecuteConditionalExpression(expression, ref index, context);
+
+                            //((true)).ToString().ToBoolean()
+
+                            if (executeResult is bool)
+                            {
+                                lastObj = !executeResult;
+                                tmpex = lastObj.ToString().ToLower();
+
+                                if (index - 1 >= 0 && expression[index - 1] == ')')
+                                    index--;
+
+                                break;
+                            }
+                            else
+                                MLog.AppErrors.Add(new AppMessage("Incorrect use of the value conversion operator.", expression));
+
+                            return null;
+
+                            //доделать конвертирование логических выражений без участия операторов true false пример: !(1>2)
+                            //доделать сложение чисел
+                        } //если не будет правильно работать, менял только эти 2 метода ###
                     }
 
                     if (index < expression.Length)
@@ -735,10 +764,13 @@ namespace MonoScript.Runtime
         }
         public static dynamic ExecuteArithmeticExpression(string expression, FindContext context)
         {
-            ExecuteArithmeticObjects(ref expression, context, "/%");
-            ExecuteArithmeticObjects(ref expression, context, "*");
-            ExecuteArithmeticObjects(ref expression, context, "-");
-            ExecuteArithmeticObjects(ref expression, context, "+");
+            if (Extensions.Contains(expression, "/%*-+"))
+            {
+                ExecuteArithmeticObjects(ref expression, context, "/%");
+                ExecuteArithmeticObjects(ref expression, context, "*");
+                ExecuteArithmeticObjects(ref expression, context, "-");
+                ExecuteArithmeticObjects(ref expression, context, "+");
+            }
 
             return ExecuteArgumentExpression(expression, context);
         }
@@ -806,6 +838,9 @@ namespace MonoScript.Runtime
 
                         if (arithSign.Contains(expression[i]))
                         {
+                            if (string.IsNullOrWhiteSpace(leftex) && expression[i] == '-')
+                                return;
+
                             if (i + 1 < expression.Length)
                             {
                                 for (int index = i + 1; index < leng; index++)
@@ -820,7 +855,7 @@ namespace MonoScript.Runtime
                                             rightex += new string(expression[index], 2);
                                         }
                                         else
-                                            MLog.AppErrors.Add(new AppMessage("Invalid operator declaration. " + expression[index], expression));
+                                            break;
                                     }
                                 }
 
@@ -869,33 +904,53 @@ namespace MonoScript.Runtime
                                         }
                                         else MLog.AppErrors.Add(new AppMessage("No special arithmetic function found for this type.", $"Path {leftType.Path}"));
 
+                                        i = -1;
                                         leng = expression.Length;
-                                        i = 0; //to:do -1;
+                                        leftex = null;
 
                                         continue;
                                     }
 
-                                    //переделать
-
                                     try
                                     {
-                                        if (expression[i] == '/')
-                                            expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj / rightObj).ToString().Replace(",", "."));
+                                        switch (expression[i])
+                                        {
+                                            case '/':
+                                                {
+                                                    expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj / rightObj).ToString().Replace(",", "."));
+                                                    break;
+                                                }
+                                            case '%':
+                                                {
+                                                    expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj % rightObj).ToString().Replace(",", "."));
+                                                    break;
+                                                }
+                                            case '*':
+                                                {
+                                                    expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj * rightObj).ToString().Replace(",", "."));
+                                                    break;
+                                                }
+                                            case '-':
+                                                {
+                                                    expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj - rightObj).ToString().Replace(",", "."));
+                                                    break;
+                                                }
+                                            case '+':
+                                                {
+                                                    if (leftObj is string || rightObj is string)
+                                                        expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, string.Format("\"{0}{1}\"", leftObj, rightObj));
+                                                    else
+                                                        expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj + rightObj).ToString().Replace(",", "."));
 
-                                        if (expression[i] == '%')
-                                            expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj % rightObj).ToString().Replace(",", "."));
+                                                    break;
+                                                }
+                                            default:
+                                                break;
+                                        }
 
-                                        if (expression[i] == '*')
-                                            expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj * rightObj).ToString().Replace(",", "."));
-
-                                        if (expression[i] == '-')
-                                            expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj - rightObj).ToString().Replace(",", "."));
-
-                                        if (expression[i] == '+')
-                                            expression = expression.Remove(leftexStartIndex, leftex.Length + rightex.Length + 1).Insert(leftexStartIndex, (leftObj + rightObj).ToString().Replace(",", "."));
-
+                                        i = -1;
                                         leng = expression.Length;
-                                        i = 0; //to:do -1;
+                                        leftex = null;
 
                                         continue;
                                     }
@@ -970,7 +1025,7 @@ namespace MonoScript.Runtime
                 {
                     if (lastObj == null && expression[i] != ' ' &&  (i == 0 || (i - 1 >= 0 && !expression[i - 1].Contains(ReservedCollection.AllowedNames))))
                     {
-                        if (expression[i].Contains(ReservedCollection.Numbers) || (expression[i] == '.' && i + 1 < expression.Length && expression[i + 1].Contains(ReservedCollection.Numbers)))
+                        if (expression[i].Contains(ReservedCollection.Numbers + "-") || (expression[i] == '.' && i + 1 < expression.Length && expression[i + 1].Contains(ReservedCollection.Numbers)))
                         {
                             int saveIndex = i;
                             var result = ObjectExpressions.ExecuteNumberExpression(ref i, expression, quoteModel);
@@ -1161,10 +1216,7 @@ namespace MonoScript.Runtime
                                     lastObj ??= FindInLastObjectMethod(objectName, lastObj);
                             }
 
-                            if (lastObj != null)
-                                lastObj = ObjectExpressions.ExecuteMethodExpression(ref i, expression, objectName, lastObj, context);
-                            else
-                                MLog.AppErrors.Add(new AppMessage("Method not found.", expression));
+                            lastObj = ObjectExpressions.ExecuteMethodExpression(ref i, expression, objectName, lastObj, context);
 
                             objectName = string.Empty;
                             continue;
