@@ -1,4 +1,5 @@
 ﻿using MonoScript.Analytics;
+using MonoScript.Collections;
 using MonoScript.Script.Basic;
 using System;
 using System.Collections.Generic;
@@ -78,7 +79,7 @@ namespace MonoScript.Script.Interfaces
         }
         public static string NormalizeWithTrim(string value)
         {
-            return value.Trim('\n', '\r', ' ');
+            return value.Trim(ReservedCollection.WhiteSpace.ToCharArray());
         }
         public static string CombinePath(string path, string parentPath)
         {

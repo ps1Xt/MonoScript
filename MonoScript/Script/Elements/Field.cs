@@ -4,6 +4,7 @@ using MonoScript.Models;
 using MonoScript.Models.Analytics;
 using MonoScript.Models.Application;
 using MonoScript.Models.Contexts;
+using MonoScript.Models.Exts;
 using MonoScript.Runtime;
 using MonoScript.Script.Basic;
 using MonoScript.Script.Interfaces;

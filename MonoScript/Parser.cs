@@ -15,6 +15,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using MonoScript.Models.Analytics;
+using MonoScript.Models.Exts;
 
 namespace MonoScript
 {

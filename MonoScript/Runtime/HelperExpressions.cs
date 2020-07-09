@@ -2,6 +2,7 @@
 using MonoScript.Models;
 using MonoScript.Models.Analytics;
 using MonoScript.Models.Contexts;
+using MonoScript.Models.Exts;
 using MonoScript.Models.Interpreter;
 using MonoScript.Models.Script;
 using MonoScript.Script.Elements;

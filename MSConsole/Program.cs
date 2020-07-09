@@ -10,7 +10,8 @@ namespace MSConsole
         static void Main(string[] args)
         {
             int index = 0;
-            var result = MonoInterpreter.ExecuteConditionalExpression("!((!false).ToString().ToBoolean()) || false", ref index, new FindContext(null));
+            //var result = MonoInterpreter.ExecuteConditionalExpression("!(false && true || true) && true", ref index, new FindContext(null));
+            var result = MonoInterpreter.ExecuteConditionalExpression("!(!user.file && true)", ref index, new FindContext(null));
 
             var errors = MLog.AppErrors;
         }

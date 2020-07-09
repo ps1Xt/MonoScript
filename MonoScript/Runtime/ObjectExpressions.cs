@@ -5,6 +5,7 @@ using MonoScript.Models;
 using MonoScript.Models.Analytics;
 using MonoScript.Models.Application;
 using MonoScript.Models.Contexts;
+using MonoScript.Models.Exts;
 using MonoScript.Models.Script;
 using MonoScript.Script.Elements;
 using MonoScript.Script.Types;
@@ -17,6 +18,211 @@ namespace MonoScript.Runtime
 {
     public static class ObjectExpressions
     {
+        public static ExecuteLogicalResult ExecuteReverseBooleanExpression(ref int index, string expression, ref string tmpex, ref bool? lastBool, ref dynamic lastObj, InsideQuoteModel insideQuote, FindContext context, ExpressionContext expressionContext)
+        {
+            ExpressionContext newExpressionContext = new ExpressionContext(true);
+            FirstIndex firstIndex = expression.FindFirstIndex(index, "(", ReservedCollection.WhiteSpace);
+            index = firstIndex.Position;
+
+            if (firstIndex.IsFirst)
+            {
+                var executeResult = MonoInterpreter.ExecuteConditionalExpression(expression, ref index, context, newExpressionContext);
+
+                if (executeResult is bool)
+                {
+                    lastObj = !executeResult;
+                    tmpex = lastObj.ToString().ToLower();
+
+                    if (index < expression.Length && index - 1 >= 0 && expression[index - 1] == ')')
+                        index--;
+
+                    return ExecuteLogicalResult.BreakResult;
+                }
+                else
+                    MLog.AppErrors.Add(new AppMessage("Incorrect use of the value conversion operator.", expression));
+            }
+            else
+            {
+                //!!!(!user.file && true)
+
+            }
+
+            return ExecuteLogicalResult.ReturnResult(null);
+        }
+        public static ExecuteLogicalResult ExecuteLogicalOrExpression(ref int index, string expression, ref string tmpex, ref bool? lastBool, ref dynamic lastObj, InsideQuoteModel insideQuote, FindContext context, ExpressionContext expressionContext)
+        {
+            if (!lastBool.HasValue)
+            {
+                var executeResult = MonoInterpreter.ExecuteEqualityExpression(tmpex, context);
+
+                if (executeResult is bool)
+                {
+                    lastBool = executeResult;
+                    lastObj = executeResult;
+                    tmpex = string.Empty;
+                }
+                else
+                {
+                    MLog.AppErrors.Add(new AppMessage("Only logical entities can participate in a conditional statement.", tmpex));
+                    return ExecuteLogicalResult.ReturnResult(null);
+                }
+            }
+            else
+            {
+                if (!lastBool.Value)
+                {
+                    lastBool = null;
+                    lastObj = null;
+                    tmpex = string.Empty;
+                    return ExecuteLogicalResult.ContinueResult;
+                }
+                else
+                {
+                    char? bracketChar = null;
+                    int bracketRoundCount = 0;
+                    int bracketSquareCount = 0;
+
+                    for (; index < expression.Length; index++)
+                    {
+                        Extensions.IsOpenQuote(expression, index, ref insideQuote);
+
+                        if (!insideQuote.HasQuotes)
+                        {
+                            if (bracketChar == null && expression[index].Contains("(["))
+                            {
+                                if (expression[index] == '(')
+                                    bracketRoundCount++;
+                                if (expression[index] == '[')
+                                    bracketSquareCount++;
+
+                                bracketChar = expression[index];
+                                continue;
+                            }
+
+                            if (bracketChar == '[' && expression[index] == '[')
+                                bracketSquareCount++;
+
+                            if (bracketChar == '[' && expression[index] == ']')
+                                bracketSquareCount--;
+
+                            if (bracketChar == '(' && expression[index] == '(')
+                                bracketRoundCount++;
+
+                            if (bracketChar == '(' && expression[index] == ')')
+                            {
+                                bracketRoundCount--;
+
+                                if (bracketRoundCount == -1)
+                                    break;
+                            }
+
+                            if (bracketChar == null && expression[index] == ')')
+                                break;
+                        }
+                    }
+
+                    if (index >= expression.Length || expression[index] == ')')
+                    {
+                        index++;
+                        return ExecuteLogicalResult.ReturnResult(true);
+                    }
+                }
+            }
+
+            return ExecuteLogicalResult.NoneResult;
+        }
+        public static ExecuteLogicalResult ExecuteLogicalAndExpression(ref int index, string expression, ref string tmpex, ref bool? lastBool, ref dynamic lastObj, InsideQuoteModel insideQuote, FindContext context, ExpressionContext expressionContext)
+        {
+            if (!lastBool.HasValue)
+            {
+                var executeResult = MonoInterpreter.ExecuteEqualityExpression(tmpex, context);
+
+                if (executeResult is bool)
+                {
+                    lastBool = executeResult;
+                    lastObj = executeResult;
+                    tmpex = string.Empty;
+                }
+                else
+                {
+                    MLog.AppErrors.Add(new AppMessage("Only logical entities can participate in a conditional statement.", tmpex));
+                    return ExecuteLogicalResult.ReturnResult(null);
+                }
+            }
+            else
+            {
+                if (lastBool.Value)
+                {
+                    tmpex = string.Empty;
+                    return ExecuteLogicalResult.ContinueResult;
+                }
+                else
+                {
+                    tmpex = string.Empty;
+                    char? bracketChar = null;
+                    int bracketRoundCount = 0;
+                    int bracketSquareCount = 0;
+
+                    for (; index < expression.Length; index++)
+                    {
+                        Extensions.IsOpenQuote(expression, index, ref insideQuote);
+
+                        if (!insideQuote.HasQuotes)
+                        {
+                            if (bracketChar == null && expression[index].Contains("(["))
+                            {
+                                if (expression[index] == '(')
+                                    bracketRoundCount++;
+                                if (expression[index] == '[')
+                                    bracketSquareCount++;
+
+                                bracketChar = expression[index];
+                                continue;
+                            }
+
+                            if (expression[index] == '|' && bracketRoundCount == 0 && bracketSquareCount == 0)
+                            {
+                                if (index < expression.Length && expression[index + 1] == '|')
+                                {
+                                    index++;
+                                    continue;
+                                }
+                                else
+                                    MLog.AppErrors.Add(new AppMessage("Incorrect operator declaration or. |", tmpex));
+                            }
+
+                            if (bracketChar == '[' && expression[index] == '[')
+                                bracketSquareCount++;
+
+                            if (bracketChar == '[' && expression[index] == ']')
+                                bracketSquareCount--;
+
+                            if (bracketChar == '(' && expression[index] == '(')
+                                bracketRoundCount++;
+
+                            if (bracketChar == '(' && expression[index] == ')')
+                            {
+                                bracketRoundCount--;
+
+                                if (bracketRoundCount == -1)
+                                    break;
+                            }
+
+                            if (bracketChar == null && expression[index] == ')')
+                                break;
+                        }
+                    }
+
+                    if (index >= expression.Length || expression[index] == ')')
+                    {
+                        index++;
+                        return ExecuteLogicalResult.ReturnResult(true);
+                    }
+                }
+            }
+
+            return ExecuteLogicalResult.NoneResult;
+        }
         public static dynamic ExecuteDecrementExpression(ref int index, string expression, string objectPath, dynamic lastObj, FindContext context)
         {
             if (lastObj == null)
@@ -564,48 +770,6 @@ namespace MonoScript.Runtime
             
             return null;
         }
-        public static ExecuteResult ExecuteForExpression(ref int index, string expression, FindContext context)
-        {
-            ExecuteResult executeResult = new ExecuteResult();
-
-
-            return executeResult;
-        }
-        public static ExecuteResult ExecuteForeachExpression(ref int index, string expression, FindContext context)
-        {
-            ExecuteResult executeResult = new ExecuteResult();
-
-
-            return executeResult;
-        }
-        public static ExecuteResult ExecuteWhileExpression(ref int index, string expression, FindContext context)
-        {
-            ExecuteResult executeResult = new ExecuteResult();
-
-
-            return executeResult;
-        }
-        public static ExecuteResult ExecuteDoWhileExpression(ref int index, string expression, FindContext context)
-        {
-            ExecuteResult executeResult = new ExecuteResult();
-
-
-            return executeResult;
-        }
-        public static ExecuteResult ExecuteSwitchExpression(ref int index, string expression, FindContext context)
-        {
-            ExecuteResult executeResult = new ExecuteResult();
-
-
-            return executeResult;
-        }
-        public static ExecuteResult ExecuteIfExpression(ref int index, string expression, FindContext context)
-        {
-            ExecuteResult executeResult = new ExecuteResult();
-
-
-            return executeResult;
-        }
         public static dynamic ExecuteOperatorGetElementExpression(ref int index, string expression, dynamic lastObj, FindContext context)
         {
             if (lastObj != null)
@@ -682,6 +846,48 @@ namespace MonoScript.Runtime
             }
 
             return null;
+        }
+        public static ExecuteBlockResult ExecuteForExpression(ref int index, string expression, FindContext context)
+        {
+            ExecuteBlockResult executeResult = new ExecuteBlockResult();
+
+
+            return executeResult;
+        }
+        public static ExecuteBlockResult ExecuteForeachExpression(ref int index, string expression, FindContext context)
+        {
+            ExecuteBlockResult executeResult = new ExecuteBlockResult();
+
+
+            return executeResult;
+        }
+        public static ExecuteBlockResult ExecuteWhileExpression(ref int index, string expression, FindContext context)
+        {
+            ExecuteBlockResult executeResult = new ExecuteBlockResult();
+
+
+            return executeResult;
+        }
+        public static ExecuteBlockResult ExecuteDoWhileExpression(ref int index, string expression, FindContext context)
+        {
+            ExecuteBlockResult executeResult = new ExecuteBlockResult();
+
+
+            return executeResult;
+        }
+        public static ExecuteBlockResult ExecuteSwitchExpression(ref int index, string expression, FindContext context)
+        {
+            ExecuteBlockResult executeResult = new ExecuteBlockResult();
+
+
+            return executeResult;
+        }
+        public static ExecuteBlockResult ExecuteIfExpression(ref int index, string expression, FindContext context)
+        {
+            ExecuteBlockResult executeResult = new ExecuteBlockResult();
+
+
+            return executeResult;
         }
         public static dynamic ExecuteMethod(Method method, LocalSpace localSpace)
         {

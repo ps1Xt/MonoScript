@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace MonoScript.Models
+namespace MonoScript.Models.Exts
 {
     public class InsideQuoteModel
     {

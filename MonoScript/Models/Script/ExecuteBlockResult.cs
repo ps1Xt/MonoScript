@@ -5,13 +5,13 @@ using System.Text;
 
 namespace MonoScript.Models.Script
 {
-    public class ExecuteResult
+    public class ExecuteBlockResult
     {
         public dynamic ObjectResult { get; set; }
         public ExecuteResultCollection ResultType { get; set; }
         public int Count { get; set; }
 
-        public ExecuteResult ExecuteNextResult(ExecuteScriptContextCollection executeScriptContext)
+        public ExecuteBlockResult ExecuteNextResult(ExecuteScriptContextCollection executeScriptContext)
         {
             if ((executeScriptContext == ExecuteScriptContextCollection.CycleOrSwitch && ResultType == ExecuteResultCollection.Break) || (executeScriptContext == ExecuteScriptContextCollection.IfElseSwitch && ResultType == ExecuteResultCollection.Quit))
                 Count--;

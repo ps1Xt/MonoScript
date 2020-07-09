@@ -12,6 +12,7 @@ using MonoScript.Models.Interpreter;
 using MonoScript.Models.Script;
 using MonoScript.Models.Contexts;
 using System.Collections.Generic;
+using MonoScript.Models.Exts;
 
 namespace MonoScript.Runtime
 {
@@ -223,15 +224,17 @@ namespace MonoScript.Runtime
 
             return null;
         }
-        public static dynamic ExecuteConditionalExpression(string expression, ref int index, FindContext context)
+        public static dynamic ExecuteConditionalExpression(string expression, ref int index, FindContext context, ExpressionContext expressionContext = null)
         {
             if (expression == null)
                 expression = string.Empty;
 
+            if (expressionContext == null)
+                expressionContext = new ExpressionContext();
+
             dynamic lastObj = null;
             string tmpex = string.Empty, numberString = null;
             bool? lastBool = null;
-            //bool hasReverseBool = false;
 
             MethodExpressionModel methodExpression = new MethodExpressionModel();
             SquareBracketExpressionModel bracketExpression = new SquareBracketExpressionModel();
@@ -266,7 +269,7 @@ namespace MonoScript.Runtime
                             }
 
                             index++;
-                            var executeResult = ExecuteConditionalExpression(expression, ref index, context);
+                            var executeResult = ExecuteConditionalExpression(expression, ref index, context, expressionContext);
 
                             if (executeResult is bool)
                             {
@@ -289,7 +292,13 @@ namespace MonoScript.Runtime
 
                             index--;
                             continue;
-                        } //если не будет правильно работать, менял только эти 2 метода ###
+                        } //!!!
+
+                        if (expression[index] == ')')
+                        {
+                            index++;
+                            break;
+                        }
 
                         if (expression[index] == '&')
                         {
@@ -298,94 +307,18 @@ namespace MonoScript.Runtime
 
                             index += 2;
 
-                            if (!lastBool.HasValue)
-                            {
-                                var executeResult = ExecuteEqualityExpression(tmpex, context);
+                            ExecuteLogicalResult logicalResult = ObjectExpressions.ExecuteLogicalAndExpression(ref index, expression, ref tmpex, ref lastBool, ref lastObj, insideQuote, context, expressionContext);
 
-                                if (executeResult is bool)
-                                {
-                                    lastBool = executeResult;
-                                    lastObj = executeResult;
-                                    tmpex = string.Empty;
-                                }
-                                else
-                                {
-                                    MLog.AppErrors.Add(new AppMessage("Only logical entities can participate in a conditional statement.", tmpex));
-                                    return null;
-                                }
-                            }
-
-                            if (lastBool.HasValue)
+                            if (!logicalResult.IsNone)
                             {
-                                if (lastBool.Value)
-                                {
-                                    tmpex = string.Empty;
+                                if (logicalResult.IsBreak)
+                                    break;
+
+                                if (logicalResult.IsContinue)
                                     continue;
-                                }
-                                else
-                                {
-                                    tmpex = string.Empty;
-                                    char? bracketChar = null;
-                                    int bracketRoundCount = 0;
-                                    int bracketSquareCount = 0;
-                                    InsideQuoteModel subQuoteModel = new InsideQuoteModel();
 
-                                    for (; index < expression.Length; index++)
-                                    {
-                                        Extensions.IsOpenQuote(expression, index, ref insideQuote);
-
-                                        if (!subQuoteModel.HasQuotes)
-                                        {
-                                            if (bracketChar == null && expression[index].Contains("(["))
-                                            {
-                                                if (expression[index] == '(')
-                                                    bracketRoundCount++;
-                                                if (expression[index] == '[')
-                                                    bracketSquareCount++;
-
-                                                bracketChar = expression[index];
-                                                continue;
-                                            }
-
-                                            if (expression[index] == '|' && bracketRoundCount == 0 && bracketSquareCount == 0)
-                                            {
-                                                if (index < expression.Length && expression[index + 1] == '|')
-                                                {
-                                                    index++;
-                                                    continue;
-                                                }
-                                                else
-                                                    MLog.AppErrors.Add(new AppMessage("Incorrect operator declaration or. |", tmpex));
-                                            }
-
-                                            if (bracketChar == '[' && expression[index] == '[')
-                                                bracketSquareCount++;
-
-                                            if (bracketChar == '[' && expression[index] == ']')
-                                                bracketSquareCount--;
-
-                                            if (bracketChar == '(' && expression[index] == '(')
-                                                bracketRoundCount++;
-
-                                            if (bracketChar == '(' && expression[index] == ')')
-                                            {
-                                                bracketRoundCount--;
-
-                                                if (bracketRoundCount == -1)
-                                                    break;
-                                            }
-
-                                            if (bracketChar == null && expression[index] == ')')
-                                                break;
-                                        }
-                                    }
-
-                                    if (index >= expression.Length || expression[index] == ')')
-                                    {
-                                        index++;
-                                        return true;
-                                    }
-                                }
+                                if (logicalResult.IsReturn)
+                                    return logicalResult.ReturnValue;
                             }
                         }
 
@@ -396,118 +329,38 @@ namespace MonoScript.Runtime
 
                             index += 2;
 
-                            if (!lastBool.HasValue)
-                            {
-                                var executeResult = ExecuteEqualityExpression(tmpex, context);
+                            ExecuteLogicalResult logicalResult = ObjectExpressions.ExecuteLogicalOrExpression(ref index, expression, ref tmpex, ref lastBool, ref lastObj, insideQuote, context, expressionContext);
 
-                                if (executeResult is bool)
-                                {
-                                    lastBool = executeResult;
-                                    lastObj = executeResult;
-                                    tmpex = string.Empty;
-                                }
-                                else
-                                {
-                                    MLog.AppErrors.Add(new AppMessage("Only logical entities can participate in a conditional statement.", tmpex));
-                                    return null;
-                                }
-                            }
-
-                            if (lastBool.HasValue)
+                            if (!logicalResult.IsNone)
                             {
-                                if (!lastBool.Value)
-                                {
-                                    lastBool = null;
-                                    lastObj = null;
-                                    tmpex = string.Empty;
+                                if (logicalResult.IsBreak)
+                                    break;
+
+                                if (logicalResult.IsContinue)
                                     continue;
-                                }
-                                else
-                                {
-                                    char? bracketChar = null;
-                                    int bracketRoundCount = 0;
-                                    int bracketSquareCount = 0;
-                                    InsideQuoteModel subQuoteModel = new InsideQuoteModel();
 
-                                    for (; index < expression.Length; index++)
-                                    {
-                                        Extensions.IsOpenQuote(expression, index, ref insideQuote);
-
-                                        if (!subQuoteModel.HasQuotes)
-                                        {
-                                            if (bracketChar == null && expression[index].Contains("(["))
-                                            {
-                                                if (expression[index] == '(')
-                                                    bracketRoundCount++;
-                                                if (expression[index] == '[')
-                                                    bracketSquareCount++;
-
-                                                bracketChar = expression[index];
-                                                continue;
-                                            }
-
-                                            if (bracketChar == '[' && expression[index] == '[')
-                                                bracketSquareCount++;
-
-                                            if (bracketChar == '[' && expression[index] == ']')
-                                                bracketSquareCount--;
-
-                                            if (bracketChar == '(' && expression[index] == '(')
-                                                bracketRoundCount++;
-
-                                            if (bracketChar == '(' && expression[index] == ')')
-                                            {
-                                                bracketRoundCount--;
-
-                                                if (bracketRoundCount == -1)
-                                                    break;
-                                            }
-
-                                            if (bracketChar == null && expression[index] == ')')
-                                                break;
-                                        }
-                                    }
-
-                                    if (index >= expression.Length || expression[index] == ')')
-                                    {
-                                        index++;
-                                        return true;
-                                    }
-                                }
+                                if (logicalResult.IsReturn)
+                                    return logicalResult.ReturnValue;
                             }
-                        }
-
-                        if (expression[index] == ')')
-                        {
-                            index++;
-                            break;
                         }
 
                         if (expression[index] == '!')
                         {
                             index++;
-                            var executeResult = ExecuteConditionalExpression(expression, ref index, context);
+                            ExecuteLogicalResult logicalResult = ObjectExpressions.ExecuteReverseBooleanExpression(ref index, expression, ref tmpex, ref lastBool, ref lastObj, insideQuote, context, expressionContext);
 
-                            //((true)).ToString().ToBoolean()
-
-                            if (executeResult is bool)
+                            if (!logicalResult.IsNone)
                             {
-                                lastObj = !executeResult;
-                                tmpex = lastObj.ToString().ToLower();
+                                if (logicalResult.IsBreak)
+                                    break;
 
-                                if (index - 1 >= 0 && expression[index - 1] == ')')
-                                    index--;
+                                if (logicalResult.IsContinue)
+                                    continue;
 
-                                break;
+                                if (logicalResult.IsReturn)
+                                    return logicalResult.ReturnValue;
                             }
-                            else
-                                MLog.AppErrors.Add(new AppMessage("Incorrect use of the value conversion operator.", expression));
-
-                            return null;
-
-                            //доделать конвертирование логических выражений без участия операторов true false пример: !(1>2)
-                            //доделать сложение чисел
-                        } //если не будет правильно работать, менял только эти 2 метода ###
+                        } //!!!
                     }
 
                     if (index < expression.Length)

@@ -12,6 +12,7 @@ namespace MonoScript.Collections
         public static string NumberSeparators { get; } = ".,";
         public static string Quotes { get; } = "'\"";
         public static string AllowedNames { get; } = Alphabet + Numbers + "_@";
+        public static string WhiteSpace { get; } = "\n\r\t ";
 
         public static string RootNamespace { get; } = "RootSpace";
         public static string RootClass { get; } = "Program";

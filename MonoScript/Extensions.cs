@@ -1,5 +1,6 @@
 ﻿using MonoScript.Collections;
 using MonoScript.Models;
+using MonoScript.Models.Exts;
 using System.Collections.Generic;
 
 namespace MonoScript
@@ -40,6 +41,39 @@ namespace MonoScript
 
             return false;
         }
+        public static FirstIndex FindFirstIndex(this string str, int startIndex, string first, string ignore)
+        {
+            for (int i = startIndex; i < str.Length; i++)
+            {
+                for (int j = 0; j < first.Length; j++)
+                {
+                    if (str[i] == first[j])
+                    {
+                        return new FirstIndex() { FirstChar = first[j], IsFirst = true, Position = i };
+                    }
+                }
+
+                bool fine = false;
+                for (int j = 0; j < ignore.Length; j++)
+                {
+                    if (str[i] == ignore[j])
+                    {
+                        fine = true;
+                        break;
+                    }
+                }
+
+                if (!fine)
+                    return new FirstIndex() { FirstChar = str[i], IsFirst = false, Position = i };
+            }
+
+            return FirstIndex.Null;
+        }
+        public static FirstIndex FindFirstIndex(this string str, string first, string ignore)
+        {
+            return FindFirstIndex(str, 0, first, ignore);
+        }
+
         public static void IsOpenQuote(string expression, int pos, ref InsideQuoteModel quoteModel)
         {
             if (expression[pos].Contains(ReservedCollection.Quotes))
